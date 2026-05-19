@@ -8,12 +8,12 @@ import { StatsHUD } from './components/StatsHUD'
 import { BenchmarkPanel } from './components/BenchmarkPanel'
 import { ModeOverlay } from './components/ModeOverlay'
 
-const MODES: { id: Mode; label: string }[] = [
-  { id: 'live',      label: 'Live Stream' },
-  { id: 'skeleton',  label: 'Skeleton' },
-  { id: 'heatmap',   label: 'Heat Map' },
-  { id: 'benchmark', label: 'Benchmark' },
-  { id: 'explainer', label: 'Explainer' },
+const MODES: { id: Mode; label: string; desc: string }[] = [
+  { id: 'live',      label: 'Live Stream',   desc: 'Real-time graph updates' },
+  { id: 'skeleton',  label: 'Skeleton',      desc: 'F₁/F₂ layer explorer' },
+  { id: 'heatmap',   label: 'Heat Map',      desc: 'Edge heat visualiser' },
+  { id: 'benchmark', label: 'Benchmark',     desc: 'Performance comparison' },
+  { id: 'explainer', label: 'Explainer',     desc: 'Step-by-step walkthrough' },
 ]
 
 export default function App() {
@@ -33,11 +33,11 @@ export default function App() {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--space-black)',
+        background: 'var(--bg-main)',
         overflow: 'hidden',
       }}
     >
-      {/* ── Header ─────────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────── */}
       <header
         style={{
           height: 'var(--header-h)',
@@ -45,68 +45,87 @@ export default function App() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 20px',
-          borderBottom: '1px solid var(--glass-border)',
-          background: 'rgba(13,17,23,0.95)',
-          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid var(--sky-border)',
+          background: 'var(--bg-surface)',
+          boxShadow: '0 1px 8px var(--sky-shadow)',
           zIndex: 100,
           flexShrink: 0,
         }}
       >
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <circle cx="14" cy="14" r="13" stroke="#00d4ff" strokeWidth="1.5" strokeOpacity="0.4" />
-            <circle cx="14" cy="7"  r="2.5" fill="#00d4ff" />
-            <circle cx="7"  cy="19" r="2.5" fill="#00d4ff" />
-            <circle cx="21" cy="19" r="2.5" fill="#00d4ff" />
-            <line x1="14" y1="7" x2="7"  y2="19" stroke="#00d4ff" strokeWidth="1.5" strokeOpacity="0.7" />
-            <line x1="14" y1="7" x2="21" y2="19" stroke="#00d4ff" strokeWidth="1.5" strokeOpacity="0.7" />
-            <line x1="7"  y1="19" x2="21" y2="19" stroke="#ffd700" strokeWidth="1.5" />
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+            <circle cx="15" cy="15" r="14" stroke="var(--sky-blue)" strokeWidth="1.5" strokeOpacity="0.3" />
+            <circle cx="15" cy="7"  r="3"   fill="var(--sky-blue)" />
+            <circle cx="7"  cy="21" r="3"   fill="var(--eco-green)" />
+            <circle cx="23" cy="21" r="3"   fill="var(--eco-green)" />
+            <line x1="15" y1="7"  x2="7"  y2="21" stroke="var(--sky-blue)"  strokeWidth="1.8" strokeOpacity="0.7" />
+            <line x1="15" y1="7"  x2="23" y2="21" stroke="var(--sky-blue)"  strokeWidth="1.8" strokeOpacity="0.7" />
+            <line x1="7"  y1="21" x2="23" y2="21" stroke="var(--eco-green)" strokeWidth="1.8" />
           </svg>
-          <span style={{ fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-accent)', letterSpacing: '0.04em' }}>
-            GRAPH<span style={{ color: 'var(--text-primary)' }}>SKEL</span>
-          </span>
+          <div>
+            <div style={{ fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-dark)', letterSpacing: '0.02em', lineHeight: 1.1 }}>
+              GRAPH<span style={{ color: 'var(--sky-blue)' }}>SKEL</span>
+            </div>
+            <div style={{ fontFamily: 'Space Grotesk', fontSize: '0.6rem', color: 'var(--text-soft)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              ADAPTSKEL Visualiser
+            </div>
+          </div>
           {demoMode && (
             <span className="demo-badge" style={{ marginLeft: 6 }}>Demo</span>
           )}
         </div>
 
         {/* Mode Tabs */}
-        <nav style={{ display: 'flex', gap: 6 }}>
+        <nav style={{ display: 'flex', gap: 4 }}>
           {MODES.map(m => (
             <button
               key={m.id}
+              type="button"
               className={`mode-tab ${mode === m.id ? 'active' : ''}`}
               onClick={() => setMode(m.id)}
+              title={m.desc}
             >
               {m.label}
             </button>
           ))}
         </nav>
 
-        {/* Right badges */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: demoMode ? '#ff8c00' : '#00ff88', boxShadow: `0 0 6px ${demoMode ? '#ff8c00' : '#00ff88'}` }} />
-            <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.7rem', color: 'var(--cold-ghost)' }}>
-              {demoMode ? 'OFFLINE' : 'LIVE'}
+        {/* Right status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: demoMode ? '#d97706' : '#16a34a',
+              boxShadow: `0 0 6px ${demoMode ? '#d97706' : '#16a34a'}`,
+            }} />
+            <span style={{ fontFamily: 'Space Grotesk', fontSize: '0.7rem', color: 'var(--text-mid)', fontWeight: 600 }}>
+              {demoMode ? 'Offline Demo' : 'Live Backend'}
             </span>
           </div>
-          <span style={{ fontFamily: 'Space Grotesk', fontSize: '0.7rem', color: 'var(--cold-ghost)', borderLeft: '1px solid var(--glass-border)', paddingLeft: 10 }}>
+          <div style={{
+            fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: 'var(--text-soft)',
+            borderLeft: '1px solid var(--sky-border)', paddingLeft: 12,
+          }}>
             ADAPTSKEL v1.0
-          </span>
+          </div>
         </div>
       </header>
 
-      {/* ── Body ───────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+      {/* ── Body ───────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative', background: 'var(--bg-main)' }}>
         {/* Left Panel */}
         <motion.div
           key="ctrl"
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.35 }}
-          style={{ width: 'var(--panel-w)', flexShrink: 0, overflowY: 'auto', padding: '12px 10px', zIndex: 10 }}
+          transition={{ duration: 0.3 }}
+          style={{
+            width: 'var(--panel-w)', flexShrink: 0,
+            overflowY: 'auto', padding: '10px 10px',
+            zIndex: 10, borderRight: '1px solid var(--sky-border)',
+            background: 'var(--bg-surface2)',
+          }}
         >
           <ControlPanel />
         </motion.div>
@@ -124,15 +143,24 @@ export default function App() {
           key="stats"
           initial={{ x: 20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.35, delay: 0.05 }}
-          style={{ width: 'var(--panel-w)', flexShrink: 0, overflowY: 'auto', padding: '12px 10px', zIndex: 10 }}
+          transition={{ duration: 0.3, delay: 0.05 }}
+          style={{
+            width: 'var(--panel-w)', flexShrink: 0,
+            overflowY: 'auto', padding: '10px 10px',
+            zIndex: 10, borderLeft: '1px solid var(--sky-border)',
+            background: 'var(--bg-surface2)',
+          }}
         >
           <StatsHUD />
         </motion.div>
       </div>
 
-      {/* ── Footer Benchmark Bar ────────────────────────────── */}
-      <div style={{ flexShrink: 0, height: 'var(--bench-h)', borderTop: '1px solid var(--glass-border)', background: 'rgba(13,17,23,0.95)' }}>
+      {/* ── Footer Benchmark Bar ──────────────────────────────── */}
+      <div style={{
+        flexShrink: 0, height: 'var(--bench-h)',
+        borderTop: '1px solid var(--sky-border)',
+        background: 'var(--bg-surface)',
+      }}>
         <BenchmarkPanel compact />
       </div>
     </div>

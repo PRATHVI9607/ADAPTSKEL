@@ -38,6 +38,8 @@ export interface AlgorithmStats {
 }
 
 export interface QueryResult {
+  source: number
+  target: number
   distance: number
   path: number[]
   pathHot: boolean

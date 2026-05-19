@@ -244,7 +244,7 @@ export class DemoSimulator {
     this.sumQueryUs += latencyUs
     this.totalQueries++
 
-    const isHot = result.path.some(nodeId => {
+    const isHot = result.path.some(_nodeId => {
       // check if any edge on this path has heat > 0.4
       for (let i = 0; i < result.path.length - 1; i++) {
         const id = edgeId(result.path[i], result.path[i + 1])
@@ -260,6 +260,8 @@ export class DemoSimulator {
     this.hotPath = result.distance >= 0 ? result.path : []
 
     this.lastQueryResult = {
+      source: s,
+      target: t,
       distance: result.distance,
       path: result.path,
       pathHot: isHot,

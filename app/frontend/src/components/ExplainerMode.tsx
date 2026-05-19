@@ -149,7 +149,7 @@ export function ExplainerMode() {
         {/* Op selector */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           {(['INSERT','DELETE','QUERY'] as OpType[]).map(o => (
-            <button key={o} className="gs-btn"
+            <button key={o} type="button" className="gs-btn"
               onClick={() => handleOp(o)}
               style={{
                 flex: 1,
@@ -171,7 +171,7 @@ export function ExplainerMode() {
                 flex: 1,
                 height: 3,
                 borderRadius: 2,
-                background: i <= step ? OP_COLORS[op] : 'rgba(255,255,255,0.08)',
+                background: i <= step ? OP_COLORS[op] : 'rgba(0,80,160,0.08)',
                 transition: 'background 0.3s',
                 cursor: 'pointer',
               }}
@@ -197,9 +197,9 @@ export function ExplainerMode() {
                 <span style={{
                   fontFamily: 'JetBrains Mono',
                   fontSize: '0.72rem',
-                  color: 'var(--path-gold)',
-                  background: 'rgba(255,215,0,0.1)',
-                  border: '1px solid rgba(255,215,0,0.25)',
+                  color: 'var(--eco-dark)',
+                  background: 'var(--eco-light)',
+                  border: '1px solid var(--eco-border)',
                   padding: '2px 8px',
                   borderRadius: 4,
                   whiteSpace: 'nowrap',
@@ -209,12 +209,12 @@ export function ExplainerMode() {
               )}
             </div>
 
-            <p style={{ fontFamily: 'Inter', fontSize: '0.82rem', color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.5 }}>
+            <p style={{ fontFamily: 'Inter', fontSize: '0.82rem', color: 'var(--text-dark)', marginBottom: 8, lineHeight: 1.5 }}>
               {current.description}
             </p>
 
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '8px 12px' }}>
-              <p style={{ fontFamily: 'Inter', fontSize: '0.76rem', color: 'var(--cold-ghost)', lineHeight: 1.5, fontStyle: 'italic' }}>
+            <div style={{ background: 'var(--sky-light)', border: '1px solid var(--sky-border)', borderRadius: 6, padding: '8px 12px' }}>
+              <p style={{ fontFamily: 'Inter', fontSize: '0.76rem', color: 'var(--text-mid)', lineHeight: 1.5, fontStyle: 'italic' }}>
                 {current.highlight}
               </p>
             </div>
@@ -223,14 +223,14 @@ export function ExplainerMode() {
 
         {/* Controls */}
         <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
-          <button className="gs-btn" onClick={reset} style={{ padding: '6px 10px' }}>
+          <button type="button" className="gs-btn" onClick={reset} style={{ padding: '6px 10px' }} aria-label="Reset to first step" title="Reset to first step">
             <RotateCcw size={13} />
           </button>
-          <button className="gs-btn" onClick={prev} disabled={isFirst}
+          <button type="button" className="gs-btn" onClick={prev} disabled={isFirst}
             style={{ flex: 1, opacity: isFirst ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             <ChevronLeft size={13} /> Prev
           </button>
-          <button className="gs-btn" onClick={next} disabled={isLast}
+          <button type="button" className="gs-btn" onClick={next} disabled={isLast}
             style={{ flex: 1, opacity: isLast ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               color: OP_COLORS[op], borderColor: `${OP_COLORS[op]}60`, background: `${OP_COLORS[op]}10` }}>
             Next <ChevronRight size={13} />
