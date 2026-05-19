@@ -1,0 +1,242 @@
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ChevronLeft, ChevronRight, Play, RotateCcw } from 'lucide-react'
+
+type OpType = 'INSERT' | 'DELETE' | 'QUERY'
+
+interface Step {
+  title: string
+  description: string
+  highlight: string
+  cost?: string
+}
+
+const STEPS: Record<OpType, Step[]> = {
+  INSERT: [
+    {
+      title: 'New Edge Arrives',
+      description: 'Edge (u, v, w) is received from the update stream.',
+      highlight: 'The edge weight w defines the path cost between vertices u and v.',
+      cost: 'O(1)',
+    },
+    {
+      title: 'Added to F₂ (Cold Layer)',
+      description: 'The new edge is initially placed in F₂, the cold skeleton layer.',
+      highlight: 'F₂ holds edges that are not yet part of the spanning-tree skeleton.',
+      cost: 'O(1)',
+    },
+    {
+      title: 'Connectivity Check in F₁',
+      description: 'We check whether u and v are already connected in F₁.',
+      highlight: 'If connected: the new edge is non-tree. If disconnected: it bridges a gap.',
+      cost: 'O(log² n)',
+    },
+    {
+      title: 'DECREASE Event Queued',
+      description: 'A DECREASE event is enqueued for affected stale vertices on the shortest-path tree.',
+      highlight: 'The lazy update mechanism batches decreases to avoid redundant work.',
+      cost: 'O(log² n)',
+    },
+    {
+      title: 'Done ✓',
+      description: 'Edge insertion complete. The skeleton self-adjusts lazily on next query.',
+      highlight: 'Amortised O(log² n) per insert. Hot edges automatically promoted on next QUERY.',
+      cost: 'O(log² n) amortised',
+    },
+  ],
+  DELETE: [
+    {
+      title: 'Edge Removal Request',
+      description: 'Edge (u, v) is marked for deletion from the graph.',
+      highlight: 'The algorithm must determine if this edge is part of F₁ or only in F₂.',
+    },
+    {
+      title: 'Was This an F₁ Skeleton Edge?',
+      description: 'If the edge is in F₂ (cold layer), simply remove it — no structural change.',
+      highlight: 'F₂ deletions are O(1). Only F₁ deletions require expensive repairs.',
+      cost: 'F₂: O(1)',
+    },
+    {
+      title: 'F₁ Split Detected',
+      description: 'Removing an F₁ tree edge splits its tree component into two parts T₁ and T₂.',
+      highlight: 'We must search F₂ for a "replacement" edge that reconnects T₁ and T₂.',
+      cost: 'O(log² n)',
+    },
+    {
+      title: 'Scanning F₂ for Replacement',
+      description: 'All F₂ edges crossing the (T₁, T₂) cut are examined for minimum weight.',
+      highlight: 'Top tree or ETT data structures allow this in O(log² n) time.',
+      cost: 'O(log² n)',
+    },
+    {
+      title: 'Replacement Promoted to F₁',
+      description: 'The minimum-weight replacement edge is promoted from F₂ to F₁, restoring connectivity.',
+      highlight: 'The demoted edges remain in F₂ as candidates for future promotions.',
+      cost: 'O(log n)',
+    },
+    {
+      title: 'Done ✓',
+      description: 'Deletion complete. F₁ skeleton is again a spanning forest.',
+      highlight: 'Total cost O(log² n) amortised — far faster than recomputing Dijkstra from scratch.',
+      cost: 'O(log² n) amortised',
+    },
+  ],
+  QUERY: [
+    {
+      title: 'Query(s, t) Received',
+      description: 'A shortest-path query between source s and target t arrives.',
+      highlight: 'ADAPTSKEL checks F₁ skeleton first — most paths are already cached here.',
+      cost: 'O(1)',
+    },
+    {
+      title: 'Checking for Stale Vertices',
+      description: 'Stale vertices on the s→t path in F₁ are identified and lazily updated.',
+      highlight: 'Staleness arises when edges were inserted/deleted since the last query.',
+      cost: 'O(k log² n)',
+    },
+    {
+      title: 'Traversing F₁ Skeleton',
+      description: 'The shortest path is computed using the up-to-date F₁ skeleton.',
+      highlight: 'Because F₁ is a sparse spanning forest, traversal is O(log n) vs O(n) for Dijkstra.',
+      cost: 'O(log n)',
+    },
+    {
+      title: 'Heat Scores Updated',
+      description: 'Query edges receive a heat-score boost. Hot edges stay in F₁; cold edges are demoted.',
+      highlight: 'The Zipf-skewed access pattern means a small fraction of edges handles most queries.',
+      cost: 'O(path length)',
+    },
+  ],
+}
+
+const OP_COLORS: Record<OpType, string> = {
+  INSERT: 'var(--insert-green)',
+  DELETE: 'var(--delete-red)',
+  QUERY:  'var(--path-gold)',
+}
+
+export function ExplainerMode() {
+  const [op, setOp]         = useState<OpType>('INSERT')
+  const [step, setStep]     = useState(0)
+  const [playing, setPlaying] = useState(false)
+
+  const steps  = STEPS[op]
+  const current = steps[step]
+  const isLast  = step === steps.length - 1
+  const isFirst = step === 0
+
+  const handleOp = (o: OpType) => { setOp(o); setStep(0) }
+  const prev     = () => setStep(s => Math.max(0, s - 1))
+  const next     = () => setStep(s => Math.min(steps.length - 1, s + 1))
+  const reset    = () => { setStep(0); setPlaying(false) }
+
+  return (
+    <div style={{
+      position: 'absolute',
+      inset: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'flex-end',
+      padding: 16,
+      pointerEvents: 'none',
+    }}>
+      <motion.div
+        className="glass-panel"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        style={{ padding: 18, maxWidth: 520, width: '100%', margin: '0 auto', pointerEvents: 'all' }}
+      >
+        {/* Op selector */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          {(['INSERT','DELETE','QUERY'] as OpType[]).map(o => (
+            <button key={o} className="gs-btn"
+              onClick={() => handleOp(o)}
+              style={{
+                flex: 1,
+                color: OP_COLORS[o],
+                borderColor: op === o ? OP_COLORS[o] : 'var(--glass-border)',
+                background: op === o ? `${OP_COLORS[o]}18` : 'transparent',
+                fontWeight: op === o ? 700 : 400,
+              }}>
+              {o}
+            </button>
+          ))}
+        </div>
+
+        {/* Step progress */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+          {steps.map((_, i) => (
+            <div key={i}
+              style={{
+                flex: 1,
+                height: 3,
+                borderRadius: 2,
+                background: i <= step ? OP_COLORS[op] : 'rgba(255,255,255,0.08)',
+                transition: 'background 0.3s',
+                cursor: 'pointer',
+              }}
+              onClick={() => setStep(i)}
+            />
+          ))}
+        </div>
+
+        {/* Step content */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${op}-${step}`}
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+              <div style={{ fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: '1rem', color: OP_COLORS[op] }}>
+                Step {step + 1}/{steps.length}: {current.title}
+              </div>
+              {current.cost && (
+                <span style={{
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: '0.72rem',
+                  color: 'var(--path-gold)',
+                  background: 'rgba(255,215,0,0.1)',
+                  border: '1px solid rgba(255,215,0,0.25)',
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {current.cost}
+                </span>
+              )}
+            </div>
+
+            <p style={{ fontFamily: 'Inter', fontSize: '0.82rem', color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.5 }}>
+              {current.description}
+            </p>
+
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '8px 12px' }}>
+              <p style={{ fontFamily: 'Inter', fontSize: '0.76rem', color: 'var(--cold-ghost)', lineHeight: 1.5, fontStyle: 'italic' }}>
+                {current.highlight}
+              </p>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Controls */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
+          <button className="gs-btn" onClick={reset} style={{ padding: '6px 10px' }}>
+            <RotateCcw size={13} />
+          </button>
+          <button className="gs-btn" onClick={prev} disabled={isFirst}
+            style={{ flex: 1, opacity: isFirst ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            <ChevronLeft size={13} /> Prev
+          </button>
+          <button className="gs-btn" onClick={next} disabled={isLast}
+            style={{ flex: 1, opacity: isLast ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              color: OP_COLORS[op], borderColor: `${OP_COLORS[op]}60`, background: `${OP_COLORS[op]}10` }}>
+            Next <ChevronRight size={13} />
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}

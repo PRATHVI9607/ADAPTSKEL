@@ -1,0 +1,226 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  --space-black:   #0a0a0f;
+  --deep-navy:     #0d1117;
+  --skeleton-blue: #00d4ff;
+  --heat-amber:    #ff8c00;
+  --heat-red:      #ff3300;
+  --cold-ghost:    #9090a0;
+  --path-gold:     #ffd700;
+  --insert-green:  #00ff88;
+  --delete-red:    #ff4444;
+  --node-white:    #e0e8ff;
+  --glass-bg:      rgba(13, 17, 23, 0.75);
+  --glass-border:  rgba(0, 212, 255, 0.15);
+  --text-primary:  #e0e8ff;
+  --text-accent:   #00d4ff;
+
+  --panel-w: 280px;
+  --header-h: 56px;
+  --bench-h: 80px;
+}
+
+/* ── Base Reset ─────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--space-black);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Typography ─────────────────────────────────────────────── */
+.font-display  { font-family: 'Space Grotesk', sans-serif; }
+.font-mono     { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Glass Panel ─────────────────────────────────────────────── */
+.glass-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.3); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 255, 0.5); }
+
+/* ── Mode Tab ────────────────────────────────────────────────── */
+.mode-tab {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--cold-ghost);
+  background: transparent;
+}
+
+.mode-tab:hover {
+  color: var(--text-primary);
+  border-color: var(--glass-border);
+}
+
+.mode-tab.active {
+  color: var(--skeleton-blue);
+  background: rgba(0, 212, 255, 0.1);
+  border-color: rgba(0, 212, 255, 0.35);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+}
+
+/* ── Stat Value (mono) ───────────────────────────────────────── */
+.stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--skeleton-blue);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.stat-label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cold-ghost);
+}
+
+/* ── Glow Utilities ──────────────────────────────────────────── */
+.glow-blue  { text-shadow: 0 0 8px rgba(0, 212, 255, 0.8); }
+.glow-gold  { text-shadow: 0 0 8px rgba(255, 215, 0, 0.8); }
+.glow-green { text-shadow: 0 0 8px rgba(0, 255, 136, 0.8); }
+
+/* ── Input / Button ──────────────────────────────────────────── */
+.gs-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.gs-input:focus { border-color: var(--skeleton-blue); }
+.gs-input::placeholder { color: var(--cold-ghost); }
+
+.gs-btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(0, 212, 255, 0.08);
+  color: var(--skeleton-blue);
+}
+
+.gs-btn:hover {
+  background: rgba(0, 212, 255, 0.18);
+  border-color: var(--skeleton-blue);
+  box-shadow: 0 0 10px rgba(0,212,255,0.2);
+}
+
+.gs-btn:active { transform: scale(0.97); }
+
+.gs-btn.danger {
+  background: rgba(255,68,68,0.08);
+  color: var(--delete-red);
+  border-color: rgba(255,68,68,0.25);
+}
+.gs-btn.danger:hover {
+  background: rgba(255,68,68,0.18);
+  border-color: var(--delete-red);
+  box-shadow: 0 0 10px rgba(255,68,68,0.2);
+}
+
+.gs-btn.success {
+  background: rgba(0,255,136,0.08);
+  color: var(--insert-green);
+  border-color: rgba(0,255,136,0.25);
+}
+.gs-btn.success:hover {
+  background: rgba(0,255,136,0.18);
+  border-color: var(--insert-green);
+  box-shadow: 0 0 10px rgba(0,255,136,0.2);
+}
+
+/* ── Progress bar ────────────────────────────────────────────── */
+.progress-track {
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+/* ── Pulse animation ─────────────────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+/* ── Explainer step ──────────────────────────────────────────── */
+.step-card {
+  border-left: 3px solid var(--skeleton-blue);
+  padding: 10px 14px;
+  background: rgba(0,212,255,0.05);
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 8px;
+}
+
+.step-card.active {
+  border-left-color: var(--path-gold);
+  background: rgba(255,215,0,0.06);
+  box-shadow: 0 0 16px rgba(255,215,0,0.1);
+}
+
+/* ── Demo badge ──────────────────────────────────────────────── */
+.demo-badge {
+  background: rgba(255,140,0,0.15);
+  border: 1px solid rgba(255,140,0,0.4);
+  color: var(--heat-amber);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
