@@ -173,6 +173,126 @@ export class DemoSimulator {
     }
   }
 
+  /** Ensure a node with given id exists in the graph */
+  private _ensureNode(id: number): void {
+    if (this.nodes.has(id)) return
+    const phi = Math.PI * (1 + Math.sqrt(5)) * id
+    const theta = Math.acos(Math.max(-1, Math.min(1, 1 - 2 * (id + 0.5) / Math.max(this.N, id + 1))))
+    const r = 4.5
+    this.nodes.set(id, {
+      id, degree: 0, dist: Infinity, stale: false, heat: 0,
+      x: r * Math.sin(theta) * Math.cos(phi),
+      y: r * Math.sin(theta) * Math.sin(phi),
+      z: r * Math.cos(theta),
+    })
+    if (id >= this.N) this.N = id + 1
+  }
+
+  /** Insert a specific edge and update UI */
+  insertSpecific(u: number, v: number, w: number): void {
+    this._ensureNode(u)
+    this._ensureNode(v)
+    const id = edgeId(u, v)
+    const t0 = performance.now()
+    if (this.edges.has(id)) {
+      // Update weight in place
+      const e = this.edges.get(id)!
+      this.dijkstra.delete(u, v)
+      this.dijkstra.insert(u, v, w)
+      this.edges.set(id, { ...e, w })
+    } else {
+      this._addEdge(u, v, w)
+      if (Math.random() < 0.35) {
+        this.skeletonEdges.add(id)
+        this.edges.set(id, { ...this.edges.get(id)!, inF1: true })
+        this.totalPromotions++
+      }
+    }
+    this.sumInsertUs += (performance.now() - t0) * 1000
+    this.totalInserts++
+    this.totalOps++
+    this.opsWindow.push(Date.now())
+    this.opsWindow = this.opsWindow.filter(t => t > Date.now() - 1000)
+    this.lastOpsPerSec = this.opsWindow.length
+    this.emit()
+  }
+
+  /** Delete a specific edge and update UI */
+  deleteSpecific(u: number, v: number): void {
+    const id = edgeId(u, v)
+    if (!this.edges.has(id)) return
+    const wasF1 = this.skeletonEdges.has(id)
+    const t0 = performance.now()
+    this._removeEdge(id)
+    if (wasF1) {
+      const f2 = [...this.edges.keys()].filter(k => !this.skeletonEdges.has(k))
+      if (f2.length > 0) {
+        const repId = f2[randInt(f2.length)]
+        this.skeletonEdges.add(repId)
+        this.edges.set(repId, { ...this.edges.get(repId)!, inF1: true })
+        this.totalPromotions++
+        this.totalDemotions++
+      }
+    }
+    this.sumDeleteUs += (performance.now() - t0) * 1000
+    this.totalDeletes++
+    this.totalOps++
+    this.opsWindow.push(Date.now())
+    this.opsWindow = this.opsWindow.filter(t => t > Date.now() - 1000)
+    this.lastOpsPerSec = this.opsWindow.length
+    this.emit()
+  }
+
+  /** Query a specific (s, t) pair and show result in trace panel */
+  querySpecific(s: number, t: number): void {
+    this._ensureNode(s)
+    this._ensureNode(t)
+    if (s === t) return
+    const t0 = performance.now()
+    const result = this.dijkstra.query(s, t)
+    const latencyUs = (performance.now() - t0) * 1000
+
+    this.sumQueryUs += latencyUs
+    this.totalQueries++
+
+    let isHot = false
+    for (let i = 0; i < result.path.length - 1; i++) {
+      const eid = edgeId(result.path[i], result.path[i + 1])
+      const e = this.edges.get(eid)
+      if (e && e.heat > 0.4) { isHot = true; break }
+    }
+    if (isHot) this.hotQueries++
+
+    this._updateHeat(result.path)
+    this.hotPath = result.distance >= 0 ? result.path : []
+
+    this.lastQueryResult = {
+      source: s,
+      target: t,
+      distance: result.distance,
+      path: result.path,
+      pathHot: isHot,
+      latencyUs,
+      newlyPromoted: 0,
+    }
+
+    this.opsWindow.push(Date.now())
+    this.opsWindow = this.opsWindow.filter(t => t > Date.now() - 1000)
+    this.lastOpsPerSec = this.opsWindow.length
+    this.emit()
+  }
+
+  /** Reset graph with a given node count (for preset loading) */
+  resetWithSize(n: number): void {
+    this.N = n
+    this.totalOps = 0; this.totalInserts = 0; this.totalDeletes = 0; this.totalQueries = 0
+    this.totalPromotions = 0; this.totalDemotions = 0
+    this.sumInsertUs = 0; this.sumDeleteUs = 0; this.sumQueryUs = 0
+    this.hotQueries = 0; this.lastOpsPerSec = 0; this.opsWindow = []
+    this.lastQueryResult = null
+    this.init()
+  }
+
   /** Perform one random operation */
   step(): void {
     const roll = Math.random()

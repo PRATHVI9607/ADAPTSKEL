@@ -112,7 +112,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     insertEdge: async (u, v, w) => {
       const { demoMode, simulator } = get()
       if (demoMode || !get().graphId) {
-        simulator?.step()
+        simulator?.insertSpecific(u, v, w)
         return
       }
       try {
@@ -129,7 +129,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     deleteEdge: async (u, v) => {
       const { demoMode, simulator } = get()
       if (demoMode || !get().graphId) {
-        simulator?.step()
+        simulator?.deleteSpecific(u, v)
         return
       }
       try {
@@ -144,7 +144,7 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     runQuery: async (s, t) => {
       const { demoMode, simulator } = get()
       if (demoMode || !get().graphId) {
-        simulator?.runQuery()
+        simulator?.querySpecific(s, t)
         return null
       }
       try {
@@ -160,9 +160,14 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     loadPreset: async (preset, n) => {
       const { demoMode } = get()
       if (demoMode || !get().graphId) {
-        // Restart simulator with new size
-        get().stopDemoSimulator()
-        get().startDemoSimulator()
+        const sim = get().simulator
+        if (sim) {
+          sim.stop()
+          sim.resetWithSize(n)
+          sim.start(600, 2000)
+        } else {
+          get().startDemoSimulator()
+        }
         return
       }
       try {
