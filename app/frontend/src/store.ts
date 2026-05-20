@@ -98,82 +98,70 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     setShowF2: (v) => set({ showF2: v }),
 
     initGraph: async () => {
-      // Try real backend first
+      // Always start simulator — it drives the 3D canvas
+      get().startDemoSimulator()
+
+      // Optionally connect to real backend for algorithm accuracy
       try {
-        const id = await engine.create({ n: 20 })
+        const id = await engine.create()
         set({ graphId: id, demoMode: false })
       } catch {
-        // Backend not available — use demo mode
         set({ demoMode: true })
-        get().startDemoSimulator()
       }
     },
 
     insertEdge: async (u, v, w) => {
-      const { demoMode, simulator } = get()
-      if (demoMode || !get().graphId) {
-        simulator?.insertSpecific(u, v, w)
-        return
-      }
-      try {
-        await engine.insert(u, v, w)
-        const edgeId = `${Math.min(u,v)}-${Math.max(u,v)}`
-        const edge: Edge3D = { id: edgeId, u, v, w, inF1: false, heat: 0, isSpanning: false }
-        get().addEdge(edge)
-      } catch (e) {
-        console.warn('Insert failed, switching to demo mode', e)
-        set({ demoMode: true })
+      // Always update the 3D canvas via simulator
+      get().simulator?.insertSpecific(u, v, w)
+
+      // Also call backend if connected
+      if (!get().demoMode && get().graphId) {
+        try { await engine.insert(u, v, w) }
+        catch (e) { console.warn('Backend insert failed', e); set({ demoMode: true }) }
       }
     },
 
     deleteEdge: async (u, v) => {
-      const { demoMode, simulator } = get()
-      if (demoMode || !get().graphId) {
-        simulator?.deleteSpecific(u, v)
-        return
-      }
-      try {
-        await engine.delete(u, v)
-        const edgeId = `${Math.min(u,v)}-${Math.max(u,v)}`
-        get().removeEdge(edgeId)
-      } catch (e) {
-        console.warn('Delete failed', e)
+      // Always update the 3D canvas via simulator
+      get().simulator?.deleteSpecific(u, v)
+
+      // Also call backend if connected
+      if (!get().demoMode && get().graphId) {
+        try { await engine.delete(u, v) }
+        catch (e) { console.warn('Backend delete failed', e) }
       }
     },
 
     runQuery: async (s, t) => {
-      const { demoMode, simulator } = get()
-      if (demoMode || !get().graphId) {
-        simulator?.querySpecific(s, t)
-        return null
+      // Always run query in simulator for visual + query trace panel
+      get().simulator?.querySpecific(s, t)
+
+      // Also call backend if connected — use its result for activeQuery
+      if (!get().demoMode && get().graphId) {
+        try {
+          const data = await engine.query(s, t) as QueryResult
+          set({ activeQuery: data, hotPath: data.path ?? [] })
+          return data
+        } catch (e) { console.warn('Backend query failed', e) }
       }
-      try {
-        const data = await engine.query(s, t) as QueryResult
-        set({ activeQuery: data, hotPath: data.path ?? [] })
-        return data
-      } catch (e) {
-        console.warn('Query failed', e)
-        return null
-      }
+      return null
     },
 
     loadPreset: async (preset, n) => {
-      const { demoMode } = get()
-      if (demoMode || !get().graphId) {
-        const sim = get().simulator
-        if (sim) {
-          sim.stop()
-          sim.resetWithSize(n)
-          sim.start(600, 2000)
-        } else {
-          get().startDemoSimulator()
-        }
-        return
+      // Always reset the 3D canvas simulator with new graph size
+      const sim = get().simulator
+      if (sim) {
+        sim.stop()
+        sim.resetWithSize(n)
+        sim.start(600, 2000)
+      } else {
+        get().startDemoSimulator()
       }
-      try {
-        await engine.loadPreset(preset, n)
-      } catch (e) {
-        console.warn('Preset failed', e)
+
+      // Also call backend if connected
+      if (!get().demoMode && get().graphId) {
+        try { await engine.loadPreset(preset, n) }
+        catch (e) { console.warn('Preset failed', e) }
       }
     },
 
