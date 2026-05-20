@@ -30,7 +30,7 @@ export class AdaptSkelEngine {
 
   async insert(u: number, v: number, w: number): Promise<object> {
     const id = this.requireId()
-    const res = await fetch(`${API_BASE}/api/graph/${id}/edge`, {
+    const res = await fetch(`${API_BASE}/api/graph/${id}/insert`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ u, v, w }),
@@ -50,7 +50,11 @@ export class AdaptSkelEngine {
 
   async query(s: number, t: number): Promise<object> {
     const id = this.requireId()
-    const res = await fetch(`${API_BASE}/api/graph/${id}/query?s=${s}&t=${t}`)
+    const res = await fetch(`${API_BASE}/api/graph/${id}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: s, target: t }),
+    })
     if (!res.ok) throw new Error(`Query failed: ${res.status}`)
     return res.json()
   }

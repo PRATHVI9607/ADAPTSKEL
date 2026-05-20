@@ -44,6 +44,11 @@ class QueryRequest(BaseModel):
     target: int
 
 
+class PresetRequest(BaseModel):
+    preset: str = "random"
+    n: int = 20
+
+
 # ---------------------------------------------------------------------------
 # Lazy import of stores from main to avoid circular import
 # ---------------------------------------------------------------------------
@@ -172,6 +177,32 @@ def get_heat(graph_id: str):
     svc = _get_service(graph_id)
     scores = svc.get_heat()
     return {"scores": scores}
+
+
+# ---------------------------------------------------------------------------
+# Endpoint: POST /api/graph/{id}/preset
+# ---------------------------------------------------------------------------
+
+@router.post("/{graph_id}/preset")
+def load_preset(graph_id: str, req: PresetRequest):
+    """Populate graph with a preset random topology."""
+    svc = _get_service(graph_id)
+    nx_g = _get_nx(graph_id)
+
+    # Edge density per preset type
+    prob = {"random": 0.25, "road": 0.15, "social": 0.20, "adversarial": 0.30}.get(req.preset, 0.25)
+    edge_count = 0
+    for u in range(req.n):
+        for v in range(u + 1, req.n):
+            if random.random() < prob:
+                w = round(random.uniform(1.0, 20.0), 1)
+                try:
+                    svc.insert(u, v, w)
+                    nx_g.add_edge(u, v, weight=w)
+                    edge_count += 1
+                except Exception:
+                    pass
+    return {"preset": req.preset, "n": req.n, "edges": edge_count}
 
 
 # ---------------------------------------------------------------------------
