@@ -1,11 +1,11 @@
-version: '3.8'
+name: ADAPTSKEL_compresive
 
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: adaptskel-backend
+    container_name: ADAPTSKEL_compresive_backend
     ports:
       - "8000:8000"
     environment:
@@ -34,7 +34,7 @@ services:
     build:
       context: ./app/frontend
       dockerfile: Dockerfile
-    container_name: adaptskel-frontend
+    container_name: ADAPTSKEL_compresive_frontend
     ports:
       - "5173:5173"
     depends_on:
@@ -53,7 +53,7 @@ services:
 
   db:
     image: postgres:15-alpine
-    container_name: adaptskel-db
+    container_name: ADAPTSKEL_compresive_db
     environment:
       - POSTGRES_USER=adaptskel
       - POSTGRES_PASSWORD=adaptskel_dev
