@@ -65,3 +65,7 @@ Thumbs.db
 *.pem
 *.key
 secrets.json
+
+# ── PRD Documents ─────────────────────────────────────────────────────────────
+PRD.md
+PRD*.md
