@@ -5,88 +5,29 @@ convergence time, path optimality, and traffic loss metrics.
 """
 from __future__ import annotations
 
-import math
 import os
-import random
 import sys
 import threading
 import time
 from typing import Any, Optional
 
+# Add core/python and routing paths to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'core', 'python'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'core', 'python', 'routing'))
 
-from adaptskel import AdaptSkel
-import networkx as nx
+from routing.simulation import ISPRoutingSimulation
 from db import log_routing_event
-
-# ── Major US Cities with Coordinates ─────────────────────────────────────────
-CITIES = {
-    0: {"name": "New York", "lat": 40.7128, "lon": -74.0060},
-    1: {"name": "Boston", "lat": 42.3601, "lon": -71.0589},
-    2: {"name": "Washington DC", "lat": 38.9072, "lon": -77.0369},
-    3: {"name": "Chicago", "lat": 41.8781, "lon": -87.6298},
-    4: {"name": "Indianapolis", "lat": 39.7684, "lon": -86.1581},
-    5: {"name": "Detroit", "lat": 42.3314, "lon": -83.0458},
-    6: {"name": "Minneapolis", "lat": 44.9778, "lon": -93.2650},
-    7: {"name": "Atlanta", "lat": 33.7490, "lon": -84.3880},
-    8: {"name": "Miami", "lat": 25.7617, "lon": -80.1918},
-    9: {"name": "Kansas City", "lat": 39.0997, "lon": -94.5786},
-    10: {"name": "Dallas", "lat": 32.7767, "lon": -96.7970},
-    11: {"name": "Houston", "lat": 29.7604, "lon": -95.3698},
-    12: {"name": "Denver", "lat": 39.7392, "lon": -104.9903},
-    13: {"name": "Salt Lake City", "lat": 40.7608, "lon": -111.8910},
-    14: {"name": "Phoenix", "lat": 33.4484, "lon": -112.0740},
-    15: {"name": "Seattle", "lat": 47.6062, "lon": -122.3321},
-    16: {"name": "Portland", "lat": 45.5152, "lon": -122.6784},
-    17: {"name": "San Francisco", "lat": 37.7749, "lon": -122.4194},
-    18: {"name": "Los Angeles", "lat": 34.0522, "lon": -118.2437},
-    19: {"name": "San Diego", "lat": 32.7157, "lon": -117.1611},
-}
-
-# Real-world fiber connections
-BACKBONE_EDGES = [
-    (0, 1), (0, 2), (0, 3),
-    (2, 4), (2, 7),
-    (3, 4), (3, 5), (3, 6), (3, 9),
-    (4, 7),
-    (6, 12), (6, 15),
-    (7, 8), (7, 10),
-    (8, 11),
-    (9, 10), (9, 12),
-    (10, 11), (10, 12), (10, 14),
-    (11, 14),
-    (12, 13),
-    (13, 15), (13, 17), (13, 18),
-    (14, 18), (14, 19),
-    (15, 16),
-    (16, 17),
-    (17, 18),
-    (18, 19),
-]
-
-def get_distance(u_id: int, v_id: int) -> float:
-    """Calculate Euclidean distance as a proxy for link latency (ms)."""
-    c1 = CITIES[u_id]
-    c2 = CITIES[v_id]
-    dist = math.sqrt((c1["lat"] - c2["lat"])**2 + (c1["lon"] - c2["lon"])**2)
-    # Scale to typical fiber propagation delay (e.g. ~8.3 ms per 1000km, roughly dist * 5)
-    return round(max(2.0, dist * 5.2), 1)
 
 class RoutingService:
     """Manages the ISP backbone simulation and dynamic pathfinding."""
 
     def __init__(self) -> None:
-        self.engine = AdaptSkel(source=0, debug=False)
-        self.oracle = nx.Graph()
+        self.sim = ISPRoutingSimulation(db_log_callback=log_routing_event)
         
-        # Original edges list: key -> weight
-        self.all_edges: dict[tuple[int, int], float] = {}
-        
-        # Simulation state
-        self.failed_edges: set[tuple[int, int]] = set()
+        # Simulation speed factor (e.g. 50,000x to accelerate Poisson events)
+        self.sim_speed = 50000.0
         self.sim_active = False
         self.sim_thread: Optional[threading.Thread] = None
-        self.sim_interval = 10.0  # Poisson mean failure rate (faster for demo)
         self.lock = threading.Lock()
 
         # Telemetry metrics
@@ -98,51 +39,47 @@ class RoutingService:
             "path_optimality_pct": 100.0,
             "active_failures": 0
         }
-        self.convergence_times: list[float] = []
-
-        self._init_network()
-
-    def _init_network(self) -> None:
-        """Register all vertices and edges in ADAPTSKEL and Oracle."""
-        for c_id in CITIES:
-            self.engine.add_vertex(c_id)
-            self.oracle.add_node(c_id)
-
-        for u, v in BACKBONE_EDGES:
-            w = get_distance(u, v)
-            key = (min(u, v), max(u, v))
-            self.all_edges[key] = w
-            self.engine.insert(u, v, w)
-            self.oracle.add_edge(u, v, weight=w)
 
     def get_topology(self) -> dict:
         """Return nodes and edges with metadata including layers and health."""
         with self.lock:
             nodes_list = []
-            for c_id, info in CITIES.items():
+            for city in self.sim.topology.cities:
+                # Find if this node is disconnected
                 nodes_list.append({
-                    "id": c_id,
-                    "name": info["name"],
-                    "lat": info["lat"],
-                    "lon": info["lon"],
+                    "id": city.id,
+                    "name": city.name,
+                    "lat": city.lat,
+                    "lon": city.lon,
+                    "population": city.population,
                     "status": "healthy"
                 })
 
             skeleton = { (min(e["u"], e["v"]), max(e["u"], e["v"])) 
-                         for e in self.engine.get_skeleton_edges() }
+                         for e in self.sim.adaptskel.get_skeleton_edges() }
 
             edges_list = []
-            for (u, v), w in self.all_edges.items():
-                key = (u, v)
-                is_failed = key in self.failed_edges
+            for link in self.sim.topology.links:
+                key = (min(link.u, link.v), max(link.u, link.v))
+                is_failed = key in self.sim.failure_sim.failed_links
                 in_f1 = key in skeleton and not is_failed
                 edges_list.append({
-                    "u": u,
-                    "v": v,
-                    "w": w,
+                    "u": link.u,
+                    "v": link.v,
+                    "w": link.latency_ms,
+                    "capacity": link.capacity_gbps,
                     "status": "failed" if is_failed else "healthy",
                     "layer": "F1" if in_f1 else "F2"
                 })
+
+            # Retrieve report metrics
+            rep = self.sim.metrics.report()
+            self.metrics.update({
+                "avg_convergence_ms": rep["avg_convergence_ms"],
+                "traffic_loss_pct": rep["avg_traffic_loss_pct"],
+                "path_optimality_pct": rep["avg_path_optimality_pct"],
+                "active_failures": len(self.sim.failure_sim.failed_links)
+            })
 
             return {
                 "nodes": nodes_list,
@@ -152,123 +89,73 @@ class RoutingService:
 
     def route(self, source: int, target: int) -> dict:
         """Compute the shortest path routing under current link failures."""
-        if source not in CITIES or target not in CITIES:
-            return {"error": "Invalid source or target city"}
-
-        t0 = time.perf_counter()
         with self.lock:
-            # Query shortest path distance via ADAPTSKEL
-            dist = self.engine.query(source, target)
-            query_time_us = (time.perf_counter() - t0) * 1e6
-            
-            # Extract path nodes via NetworkX mirror (which replicates engine exact topology)
-            try:
-                path = nx.shortest_path(self.oracle, source, target, weight="weight")
-            except (nx.NetworkXNoPath, nx.NodeNotFound):
-                path = []
-                dist = float("inf")
-
-            # Optimality check (since ADAPTSKEL computes exact, this is always 100% unless disconnected)
-            optimality = 100.0
-            if dist == float("inf"):
-                optimality = 0.0
-
-            # Log to DB
-            log_routing_event("query", source, target, query_time_us, len(self.failed_edges), optimality)
-
+            res = self.sim.route_engine.route(source, target)
+            if not res["path"] and source != target:
+                return {"error": f"No path found between router {source} and {target}"}
+                
             return {
-                "source": source,
-                "target": target,
-                "distance": dist if dist != float("inf") else None,
-                "path": path,
-                "query_time_us": round(query_time_us, 1),
-                "optimality": optimality
+                "source": res["source"],
+                "target": res["destination"],
+                "distance": res["latency_ms"] if res["latency_ms"] != float('inf') else None,
+                "path": res["path"],
+                "query_time_us": round(res["convergence_ms"] * 1000.0, 1),
+                "optimality": 100.0 if res["latency_ms"] != float('inf') else 0.0,
+                "bottleneck_gbps": res["bottleneck_gbps"]
             }
 
     def simulate_failure(self, u: int, v: int) -> dict:
         """Trigger a manual link failure."""
-        key = (min(u, v), max(u, v))
-        if key not in self.all_edges:
-            return {"error": "Edge does not exist"}
-        if key in self.failed_edges:
-            return {"success": True, "info": "Edge already failed"}
-
-        t0 = time.perf_counter()
         with self.lock:
-            self.failed_edges.add(key)
-            self.engine.delete(u, v)
-            if self.oracle.has_edge(u, v):
-                self.oracle.remove_edge(u, v)
-            
-            convergence_time_us = (time.perf_counter() - t0) * 1e6
-            conv_ms = convergence_time_us / 1000.0
-            
+            res = self.sim.trigger_manual_failure(u, v)
+            if "error" in res:
+                return res
             self.metrics["total_failures"] += 1
-            self.metrics["active_failures"] = len(self.failed_edges)
-            self.convergence_times.append(conv_ms)
-            self.metrics["avg_convergence_ms"] = round(sum(self.convergence_times) / len(self.convergence_times), 3)
-
-            # Simulated packet loss: if convergence takes more than 5ms, traffic loss is proportional
-            # Let's say: loss = min(1.0, conv_ms / 100.0) * 100.0 (capped at 0.1% for normal run)
-            loss = round(min(0.1, conv_ms * 0.005) * 100.0, 3)
-            self.metrics["traffic_loss_pct"] = max(self.metrics["traffic_loss_pct"], loss)
-
-            log_routing_event("failure", u, v, convergence_time_us, len(self.failed_edges))
-
             return {
                 "success": True,
                 "u": u,
                 "v": v,
-                "convergence_time_ms": round(conv_ms, 3),
-                "traffic_loss_pct": loss
+                "convergence_time_ms": res["convergence_time_ms"],
+                "traffic_loss_pct": self.sim.metrics.report()["avg_traffic_loss_pct"]
             }
 
     def simulate_recovery(self, u: int, v: int) -> dict:
         """Trigger a manual link recovery."""
-        key = (min(u, v), max(u, v))
-        if key not in self.all_edges:
-            return {"error": "Edge does not exist"}
-        if key not in self.failed_edges:
-            return {"success": True, "info": "Edge is already healthy"}
-
-        t0 = time.perf_counter()
         with self.lock:
-            self.failed_edges.discard(key)
-            w = self.all_edges[key]
-            self.engine.insert(u, v, w)
-            self.oracle.add_edge(u, v, weight=w)
-
-            convergence_time_us = (time.perf_counter() - t0) * 1e6
-            conv_ms = convergence_time_us / 1000.0
-
+            res = self.sim.trigger_manual_recovery(u, v)
+            if "error" in res:
+                return res
             self.metrics["total_recoveries"] += 1
-            self.metrics["active_failures"] = len(self.failed_edges)
-            self.convergence_times.append(conv_ms)
-            self.metrics["avg_convergence_ms"] = round(sum(self.convergence_times) / len(self.convergence_times), 3)
-
-            log_routing_event("recovery", u, v, convergence_time_us, len(self.failed_edges))
-
             return {
                 "success": True,
                 "u": u,
                 "v": v,
-                "convergence_time_ms": round(conv_ms, 3)
+                "convergence_time_ms": res["convergence_time_ms"]
             }
 
     def start_simulation(self, interval_sec: float = 8.0) -> dict:
-        """Start the background Poisson failure simulation loop."""
+        """
+        Start the background Poisson failure simulation loop.
+        interval_sec is translated into an appropriate speed factor.
+        """
         with self.lock:
             if self.sim_active:
                 return {"status": "already running"}
             self.sim_active = True
-            self.sim_interval = interval_sec
+            
+            # Map interval_sec to sim_speed
+            # Low interval means high speed
+            # Let's say: 8.0s interval = 50000.0 speed.
+            # speed = 400000.0 / interval_sec
+            self.sim_speed = 400000.0 / max(0.1, interval_sec)
+            
             self.sim_thread = threading.Thread(
                 target=self._run_simulation,
                 daemon=True,
-                name="routing-simulator"
+                name="routing-simulator-v2"
             )
             self.sim_thread.start()
-            return {"status": "started", "interval_sec": interval_sec}
+            return {"status": "started", "speed_factor": self.sim_speed}
 
     def stop_simulation(self) -> dict:
         """Stop the background Poisson failure simulation loop."""
@@ -278,42 +165,75 @@ class RoutingService:
             self.sim_active = False
             return {"status": "stopping"}
 
-    def _run_simulation(self) -> None:
-        """Background thread executing Poisson link failure events."""
-        while True:
-            # Poisson interval modeling: time = -ln(rand) * mean
-            r = random.random()
-            if r == 0:
-                r = 0.0001
-            delay = -math.log(r) * self.sim_interval
+    def reset_simulation(self) -> dict:
+        """Reset the simulation engine to initial healthy state."""
+        was_active = self.sim_active
+        if was_active:
+            self.stop_simulation()
             
-            # Sleep in small segments to react quickly to shutdown
-            slept = 0.0
-            while slept < delay:
+        with self.lock:
+            self.sim = ISPRoutingSimulation(db_log_callback=log_routing_event)
+            self.metrics = {
+                "total_failures": 0,
+                "total_recoveries": 0,
+                "avg_convergence_ms": 0.0,
+                "traffic_loss_pct": 0.0,
+                "path_optimality_pct": 100.0,
+                "active_failures": 0
+            }
+            
+        if was_active:
+            self.start_simulation()
+            
+        return {"status": "reset"}
+
+    def get_csv_export(self) -> str:
+        """Generate a CSV report of the simulation metrics."""
+        rep = self.sim.metrics.report()
+        lines = [
+            "Metric,Value,Status",
+            f"Avg Convergence (ms),{rep['avg_convergence_ms']},{'MET' if rep['convergence_slo_met'] else 'VIOLATED'}",
+            f"P95 Convergence (ms),{rep['p95_convergence_ms']},-",
+            f"P99 Convergence (ms),{rep['p99_convergence_ms']},-",
+            f"Avg Traffic Loss (%),{rep['avg_traffic_loss_pct']},{'MET' if rep['traffic_loss_slo_met'] else 'VIOLATED'}",
+            f"Max Traffic Loss (%),{rep['max_traffic_loss_pct']},-",
+            f"Avg Path Optimality (%),{rep['avg_path_optimality_pct']},{'MET' if rep['optimality_slo_met'] else 'VIOLATED'}",
+            f"Query Availability (%),{rep['availability_pct']},{'MET' if rep['availability_slo_met'] else 'VIOLATED'}",
+            f"Active Failures,{len(self.sim.failure_sim.failed_links)},-"
+        ]
+        return "\n".join(lines)
+
+    def _run_simulation(self) -> None:
+        """Background thread executing Poisson link failure events using step()."""
+        while True:
+            with self.lock:
                 if not self.sim_active:
                     return
-                time.sleep(0.5)
-                slept += 0.5
+                # Get next event delay in simulated seconds
+                delay, event_type, link = self.sim.failure_sim.get_next_event_delay(
+                    self.sim.current_sim_time, self.sim.active_failures_limit
+                )
 
-            if not self.sim_active:
-                return
+            # Sleep duration in real wall-clock seconds is delay / sim_speed
+            # Limit minimum sleep to avoid high-CPU spins if delay is very small
+            real_sleep = max(0.1, min(10.0, delay / self.sim_speed))
 
-            # Trigger failure or recovery randomly
-            # Limit total simultaneous failures to 5 (to avoid graph complete fragmentation)
-            active_fail_count = len(self.failed_edges)
-            
-            trigger_failure = (active_fail_count == 0) or (
-                active_fail_count < 5 and random.random() < 0.6
-            )
+            # Sleep in small segments to react quickly to shutdown
+            slept = 0.0
+            while slept < real_sleep:
+                if not self.sim_active:
+                    return
+                time.sleep(min(0.2, real_sleep - slept))
+                slept += 0.2
 
-            if trigger_failure:
-                # Select a healthy link to fail
-                healthy_links = [edge for edge in self.all_edges if edge not in self.failed_edges]
-                if healthy_links:
-                    u, v = random.choice(healthy_links)
-                    self.simulate_failure(u, v)
-            else:
-                # Recover a failed link
-                if self.failed_edges:
-                    u, v = random.choice(list(self.failed_edges))
-                    self.simulate_recovery(u, v)
+            with self.lock:
+                if not self.sim_active:
+                    return
+                # Advance simulation and execute step
+                step_res = self.sim.step()
+                
+                # Increment metrics counters
+                if step_res["event"] == "failure":
+                    self.metrics["total_failures"] += 1
+                elif step_res["event"] == "recovery":
+                    self.metrics["total_recoveries"] += 1

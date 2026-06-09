@@ -79,6 +79,8 @@ def manual_recovery(req: LinkRequest):
     return result
 
 
+from fastapi.responses import PlainTextResponse
+
 @router.post("/simulation/start")
 def start_simulation(config: SimConfig):
     """Start the background Poisson link failure simulator."""
@@ -99,6 +101,19 @@ def get_simulation_status():
     svc = _get_routing_service()
     return {
         "active": svc.sim_active,
-        "interval_sec": svc.sim_interval,
         "metrics": svc.metrics
     }
+
+
+@router.post("/simulation/reset")
+def reset_simulation():
+    """Reset simulation to healthy initial state."""
+    svc = _get_routing_service()
+    return svc.reset_simulation()
+
+
+@router.get("/simulation/export", response_class=PlainTextResponse)
+def export_simulation():
+    """Export simulation metrics as CSV."""
+    svc = _get_routing_service()
+    return svc.get_csv_export()

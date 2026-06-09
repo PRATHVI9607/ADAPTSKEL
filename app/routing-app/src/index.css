@@ -1,0 +1,208 @@
+:root {
+  --bg-space: #030307;
+  --bg-surface: rgba(10, 10, 20, 0.7);
+  --bg-surface2: rgba(20, 20, 35, 0.9);
+  --sky-blue: #00e5ff;
+  --eco-green: #00e676;
+  --eco-dark: #00c853;
+  --heat-warm: #ff9100;
+  --danger-red: #ff1744;
+  --sky-border: rgba(0, 229, 255, 0.2);
+  --sky-glow: rgba(0, 229, 255, 0.4);
+  --gold-glow: rgba(255, 215, 0, 0.6);
+  --text-bright: #ffffff;
+  --text-mid: #b0bec5;
+  --text-soft: #78909c;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-space);
+  color: var(--text-bright);
+  font-family: 'Inter', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sky-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sky-blue);
+}
+
+.glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--sky-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.glass-panel:hover {
+  border-color: rgba(0, 229, 255, 0.35);
+  box-shadow: 0 8px 32px 0 rgba(0, 229, 255, 0.1);
+}
+
+.glow-text {
+  text-shadow: 0 0 10px var(--sky-glow);
+}
+
+.gs-btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 8px 16px;
+  outline: none;
+}
+
+.gs-btn.success {
+  background: rgba(0, 230, 118, 0.1);
+  color: var(--eco-green);
+  border-color: rgba(0, 230, 118, 0.3);
+}
+
+.gs-btn.success:hover {
+  background: rgba(0, 230, 118, 0.25);
+  border-color: var(--eco-green);
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.3);
+}
+
+.gs-btn.danger {
+  background: rgba(255, 23, 68, 0.1);
+  color: var(--danger-red);
+  border-color: rgba(255, 23, 68, 0.3);
+}
+
+.gs-btn.danger:hover {
+  background: rgba(255, 23, 68, 0.25);
+  border-color: var(--danger-red);
+  box-shadow: 0 0 12px rgba(255, 23, 68, 0.3);
+}
+
+.gs-btn.secondary {
+  background: rgba(120, 144, 156, 0.1);
+  color: var(--text-mid);
+  border-color: rgba(120, 144, 156, 0.3);
+}
+
+.gs-btn.secondary:hover {
+  background: rgba(120, 144, 156, 0.2);
+  border-color: var(--text-bright);
+}
+
+.gs-input {
+  background: rgba(10, 10, 20, 0.8);
+  border: 1px solid var(--sky-border);
+  color: var(--text-bright);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.gs-input:focus {
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 8px var(--sky-border);
+}
+
+/* Map custom overrides */
+.leaflet-container {
+  background-color: #030307 !important;
+  border-radius: 12px;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid var(--sky-border) !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  background-color: var(--bg-surface2) !important;
+  color: var(--sky-blue) !important;
+  border-color: var(--sky-border) !important;
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+  background-color: var(--sky-blue) !important;
+  color: var(--bg-space) !important;
+}
+
+/* Custom Router Icon styles */
+.router-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 3, 7, 0.85);
+  border: 2.5px solid var(--sky-blue);
+  border-radius: 50%;
+  color: var(--sky-blue);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 9px;
+  box-shadow: 0 0 8px var(--sky-glow);
+  transition: all 0.3s ease;
+}
+
+.router-icon.hub {
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 12px var(--sky-glow);
+}
+
+.router-icon.spoke {
+  border-color: var(--text-soft);
+  box-shadow: none;
+}
+
+.router-icon.failed {
+  border-color: var(--danger-red);
+  color: var(--danger-red);
+  box-shadow: 0 0 12px rgba(255, 23, 68, 0.6);
+}
+
+.router-icon.selected {
+  border-color: var(--eco-green);
+  color: var(--eco-green);
+  box-shadow: 0 0 15px rgba(0, 230, 118, 0.7);
+  transform: scale(1.15);
+}
+
+/* Timeline animations */
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.timeline-event {
+  animation: slideIn 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
