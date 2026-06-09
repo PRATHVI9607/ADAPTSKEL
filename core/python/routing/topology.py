@@ -20,63 +20,47 @@ class Link:
     capacity_gbps: float
     status: str = "healthy"  # "healthy" | "failed"
 
-# 50 major US cities with lat/lon coordinates and populations
+# 34 major Indian cities with lat/lon coordinates and populations
 CITIES_DATA = [
-    ("New York", 40.7128, -74.0060, 8336817),
-    ("Los Angeles", 34.0522, -118.2437, 3971883),
-    ("Chicago", 41.8781, -87.6298, 2695598),
-    ("Houston", 29.7604, -95.3698, 2320268),
-    ("Phoenix", 33.4484, -112.0740, 1680992),
-    ("Philadelphia", 39.9526, -75.1652, 1584064),
-    ("San Antonio", 29.4241, -98.4936, 1547253),
-    ("San Diego", 32.7157, -117.1611, 1423851),
-    ("Dallas", 32.7767, -96.7970, 1343573),
-    ("San Jose", 37.3382, -121.8863, 1021795),
-    ("Austin", 30.2672, -97.7431, 978908),
-    ("Jacksonville", 30.3322, -81.6557, 911507),
-    ("Fort Worth", 32.7555, -97.3308, 909585),
-    ("Columbus", 39.9612, -82.9988, 898553),
-    ("Charlotte", 35.2271, -80.8431, 885705),
-    ("San Francisco", 37.7749, -122.4194, 881549),
-    ("Indianapolis", 39.7684, -86.1581, 876384),
-    ("Seattle", 47.6062, -122.3321, 753675),
-    ("Denver", 39.7392, -104.9903, 727211),
-    ("Washington DC", 38.9072, -77.0369, 705749),
-    ("Boston", 42.3601, -71.0589, 692600),
-    ("El Paso", 31.7619, -106.4850, 681728),
-    ("Nashville", 36.1627, -86.7816, 670820),
-    ("Detroit", 42.3314, -83.0458, 670031),
-    ("Oklahoma City", 35.4676, -97.5164, 655057),
-    ("Portland", 45.5152, -122.6784, 654741),
-    ("Las Vegas", 36.1716, -115.1398, 651319),
-    ("Memphis", 35.1495, -90.0490, 651073),
-    ("Louisville", 38.2527, -85.7585, 617638),
-    ("Baltimore", 39.2904, -76.6122, 593490),
-    ("Milwaukee", 43.0389, -87.9065, 590157),
-    ("Albuquerque", 35.0844, -106.6511, 560513),
-    ("Tucson", 32.2226, -110.9747, 548073),
-    ("Fresno", 36.7378, -119.7871, 530074),
-    ("Sacramento", 38.5816, -121.4944, 513624),
-    ("Kansas City", 39.0997, -94.5786, 508090),
-    ("Mesa", 33.4152, -111.8315, 508958),
-    ("Atlanta", 33.7490, -84.3880, 506811),
-    ("Omaha", 41.2565, -95.9345, 478192),
-    ("Colorado Springs", 38.8339, -104.8214, 478221),
-    ("Raleigh", 35.7796, -78.6382, 474069),
-    ("Miami", 25.7617, -80.1918, 467963),
-    ("Virginia Beach", 36.8529, -75.9780, 449974),
-    ("Minneapolis", 44.9778, -93.2650, 429606),
-    ("Oakland", 37.8044, -122.2712, 425195),
-    ("Tulsa", 36.1540, -95.9928, 401352),
-    ("Wichita", 37.6872, -97.3301, 389938),
-    ("New Orleans", 29.9511, -90.0715, 383997),
-    ("Arlington", 32.7357, -97.1081, 398854),
-    ("Cleveland", 41.4993, -81.6944, 381009)
+    ("Delhi", 28.6139, 77.2090, 16787941),
+    ("Mumbai", 19.0760, 72.8777, 12442373),
+    ("Bangalore", 12.9716, 77.5946, 8443675),
+    ("Chennai", 13.0827, 80.2707, 7088000),
+    ("Kolkata", 22.5726, 88.3639, 4496694),
+    ("Hyderabad", 17.3850, 78.4867, 6731790),
+    ("Pune", 18.5204, 73.8567, 3124458),
+    ("Ahmedabad", 23.0225, 72.5714, 5577940),
+    ("Jaipur", 26.9124, 75.7873, 3046163),
+    ("Lucknow", 26.8467, 80.9462, 2817105),
+    ("Chandigarh", 30.7333, 76.7794, 1055450),
+    ("Indore", 22.7196, 75.8577, 1964086),
+    ("Coimbatore", 11.0168, 76.9558, 1601538),
+    ("Kochi", 9.9312, 76.2673, 602046),
+    ("Visakhapatnam", 17.6868, 83.2185, 2035354),
+    ("Nagpur", 21.1458, 79.0882, 2405665),
+    ("Surat", 21.1702, 72.8311, 4467797),
+    ("Vadodara", 22.3072, 73.1812, 1670806),
+    ("Bhopal", 23.2599, 77.4126, 1798218),
+    ("Patna", 25.5941, 85.1376, 1684222),
+    ("Guwahati", 26.1445, 91.7362, 957352),
+    ("Thiruvananthapuram", 8.5241, 76.9366, 957730),
+    ("Ranchi", 23.3441, 85.3096, 1073440),
+    ("Raipur", 21.2514, 81.6296, 1010087),
+    ("Bhubaneswar", 20.2961, 85.8245, 837737),
+    ("Ludhiana", 30.9010, 75.8573, 1618879),
+    ("Amritsar", 31.6340, 74.8723, 1132383),
+    ("Agra", 27.1767, 78.0081, 1585704),
+    ("Varanasi", 25.3176, 82.9739, 1198491),
+    ("Madurai", 9.9252, 78.1198, 1017865),
+    ("Vijayawada", 16.5062, 80.6480, 1034358),
+    ("Jodhpur", 26.2389, 73.0243, 1033918),
+    ("Srinagar", 34.0837, 74.7973, 1180570),
+    ("Shimla", 31.1048, 77.1734, 169578)
 ]
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate the great-circle distance between two points in miles."""
-    R = 3959.0  # Earth's radius in miles
+    """Calculate the great-circle distance between two points in kilometers."""
+    R = 6371.0  # Earth's radius in kilometers
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
@@ -85,7 +69,7 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 class BackboneTopology:
-    """Generates a realistic 50-city connected ISP backbone network topology."""
+    """Generates a realistic 34-city connected Indian ISP backbone network topology."""
     def __init__(self) -> None:
         self.cities: List[City] = []
         self.links: List[Link] = []
@@ -102,23 +86,23 @@ class BackboneTopology:
     def _generate_backbone(self) -> None:
         """Create connected hub-and-spoke mesh topology."""
         g = nx.Graph()
-        g.add_nodes_from(range(50))
+        g.add_nodes_from(range(len(self.cities)))
         
         # 1. Designated Hubs
-        hub_names = ["New York", "Chicago", "Atlanta", "Dallas", "Denver", "Los Angeles", "Seattle", "San Francisco", "Miami"]
+        hub_names = ["Delhi", "Mumbai", "Bangalore", "Chennai", "Kolkata", "Hyderabad"]
         hubs = [self.city_to_id[name] for name in hub_names]
         
         # 2. Inter-hub mesh connections
         hub_edges = [
-            ("New York", "Chicago"), ("New York", "Washington DC"), ("New York", "Boston"),
-            ("New York", "Atlanta"), ("Chicago", "Denver"), ("Chicago", "Detroit"),
-            ("Chicago", "Minneapolis"), ("Chicago", "Cleveland"), ("Atlanta", "Miami"),
-            ("Atlanta", "Dallas"), ("Atlanta", "Washington DC"), ("Dallas", "Houston"),
-            ("Dallas", "Denver"), ("Dallas", "Phoenix"), ("Denver", "Salt Lake City"),
-            ("Denver", "Las Vegas"), ("Denver", "Kansas City"), ("Los Angeles", "San Francisco"),
-            ("Los Angeles", "Phoenix"), ("Los Angeles", "San Diego"), ("Los Angeles", "Salt Lake City"),
-            ("San Francisco", "Seattle"), ("San Francisco", "Portland"), ("San Francisco", "Salt Lake City"),
-            ("Seattle", "Portland"), ("Seattle", "Minneapolis"), ("Miami", "Houston"), ("Washington DC", "Charlotte")
+            ("Delhi", "Mumbai"), ("Delhi", "Kolkata"), ("Delhi", "Hyderabad"),
+            ("Delhi", "Jaipur"), ("Delhi", "Lucknow"),
+            ("Mumbai", "Hyderabad"), ("Mumbai", "Bangalore"), ("Mumbai", "Pune"),
+            ("Mumbai", "Ahmedabad"), ("Mumbai", "Surat"),
+            ("Bangalore", "Chennai"), ("Bangalore", "Hyderabad"), ("Bangalore", "Kochi"),
+            ("Chennai", "Hyderabad"), ("Chennai", "Kolkata"), ("Chennai", "Visakhapatnam"),
+            ("Kolkata", "Hyderabad"), ("Kolkata", "Patna"), ("Kolkata", "Bhubaneswar"),
+            ("Kolkata", "Guwahati"), ("Hyderabad", "Pune"), ("Hyderabad", "Nagpur"),
+            ("Hyderabad", "Visakhapatnam")
         ]
         
         for u_name, v_name in hub_edges:
@@ -136,17 +120,17 @@ class BackboneTopology:
             ))
             g.add_edge(city.id, nearest_hub)
             
-        # 4. Add additional short-range mesh connectivity (dist < 400 miles) with probability 0.25
+        # 4. Add additional short-range mesh connectivity (dist < 450 km) with probability 0.30
         random.seed(42)  # For deterministic topology generation
-        for i in range(50):
-            for j in range(i + 1, 50):
+        for i in range(len(self.cities)):
+            for j in range(i + 1, len(self.cities)):
                 if g.has_edge(i, j):
                     continue
                 dist = haversine_distance(self.cities[i].lat, self.cities[i].lon, self.cities[j].lat, self.cities[j].lon)
-                if dist < 400 and random.random() < 0.25:
+                if dist < 450 and random.random() < 0.30:
                     g.add_edge(i, j)
 
-        # Ensure the topology is fully connected, fallback to direct connections to New York if not
+        # Ensure the topology is fully connected, fallback to direct connections to Delhi if not
         if not nx.is_connected(g):
             components = list(nx.connected_components(g))
             main_comp = max(components, key=len)
@@ -154,13 +138,15 @@ class BackboneTopology:
                 if comp == main_comp:
                     continue
                 node_in_comp = list(comp)[0]
-                g.add_edge(node_in_comp, 0)  # Connect to NYC hub
+                g.add_edge(node_in_comp, 0)  # Connect to Delhi hub
 
         # Build Links list
         for u, v in g.edges():
             dist = haversine_distance(self.cities[u].lat, self.cities[u].lon, self.cities[v].lat, self.cities[v].lon)
-            latency = max(1.0, round((dist / 100.0) * 1.0, 1))  # 1ms per 100 miles
-            # NYC, Chicago, LA hub connections get higher capacities
+            # Latency: 1 ms per 100 km
+            latency = max(1.0, round((dist / 100.0) * 1.0, 1))
+            
+            # Hub connections get higher capacities
             is_high_capacity = u in hubs and v in hubs
             capacity = 100.0 if is_high_capacity else 40.0  # 100Gbps or 40Gbps
             self.links.append(Link(u=u, v=v, latency_ms=latency, capacity_gbps=capacity))
