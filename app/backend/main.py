@@ -7,6 +7,8 @@ import os
 
 # Add core/python to path so AdaptSkel engine is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'core', 'python'))
+# Add app/backend to path so local routers and services are importable
+sys.path.insert(0, os.path.dirname(__file__))
 
 app = FastAPI(title="ADAPTSKEL API", version="1.0.0")
 
