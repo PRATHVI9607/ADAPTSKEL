@@ -12,7 +12,6 @@ services:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=info
       - ENV=development
-      - DATABASE_URL=postgresql://adaptskel:adaptskel_dev@db:5432/adaptskel_db
     volumes:
       - ./benchmarks/results:/app/benchmarks/results
       - ./core/python:/app/core/python
@@ -20,15 +19,12 @@ services:
     networks:
       - adaptskel-net
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 20s
-    restart: unless-stopped
 
   frontend:
     build:
@@ -38,18 +34,14 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     environment:
       - VITE_API_BASE=http://localhost:8000
-      - VITE_WS_BASE=ws://localhost:8000
       - NODE_ENV=development
     volumes:
       - ./app/frontend/src:/app/src
-      - ./app/frontend/public:/app/public
     networks:
       - adaptskel-net
-    restart: unless-stopped
 
   db:
     image: postgres:15-alpine
@@ -62,7 +54,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - adaptskel-net
-    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U adaptskel"]
       interval: 10s

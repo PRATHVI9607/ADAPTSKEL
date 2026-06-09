@@ -1,55 +1,27 @@
 FROM python:3.11-slim
 
-LABEL maintainer="Pranav V."
-LABEL description="ADAPTSKEL Backend - Fully Dynamic Graph SSSP Algorithm"
-
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    build-essential curl libpq-dev && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
-# Copy requirements
-COPY app/backend/requirements.txt /tmp/requirements.txt
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
+COPY app/backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir uvicorn[standard] gunicorn
 
-# Copy application code
-COPY app/backend /app/app/backend
-COPY core/python /app/core/python
-COPY benchmarks /app/benchmarks
-COPY tests /app/tests
+COPY app/backend app/backend
+COPY core/python core/python
+COPY benchmarks benchmarks
 
-# Create directories
-RUN mkdir -p /app/benchmarks/results /app/logs
-
-# Set Python path
 ENV PYTHONPATH=/app:$PYTHONPATH
 
-# Health check
-HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=20s \
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 EXPOSE 8000
 
-# Production: use gunicorn
-# Development: docker-compose overrides with uvicorn --reload
-CMD ["gunicorn", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
-     "app.backend.main:app"]
+     "--workers", "4", "app.backend.main:app"]
