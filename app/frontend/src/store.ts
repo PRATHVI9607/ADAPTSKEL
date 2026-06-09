@@ -1,7 +1,8 @@
 import { create } from 'zustand'
-import { Node3D, Edge3D, Mode, AlgorithmStats, QueryResult, BenchmarkResult, DEFAULT_STATS } from './engine/GraphState'
+import { Node3D, Edge3D, Mode, AlgorithmStats, QueryResult, BenchmarkResult, DEFAULT_STATS, RoutingNode, RoutingEdge, RoutingMetrics } from './engine/GraphState'
 import { AdaptSkelEngine } from './engine/AdaptSkelEngine'
 import { DemoSimulator } from './engine/DemoSimulator'
+import { RoutingEngine } from './engine/routingEngine'
 
 interface GraphStore {
   // Graph state
@@ -28,6 +29,25 @@ interface GraphStore {
   // Engine instances
   engine: AdaptSkelEngine
   simulator: DemoSimulator | null
+  routingEngine: RoutingEngine
+
+  // Routing state
+  routingNodes: RoutingNode[]
+  routingEdges: RoutingEdge[]
+  routingMetrics: RoutingMetrics | null
+  routingSource: number | null
+  routingTarget: number | null
+  routingPath: number[]
+  routingActive: boolean
+
+  // Routing actions
+  fetchRoutingTopology: () => Promise<void>
+  setRoutingSource: (id: number | null) => void
+  setRoutingTarget: (id: number | null) => void
+  computeRoutingRoute: () => Promise<void>
+  toggleRoutingSimulation: () => Promise<void>
+  triggerRoutingFailure: (u: number, v: number) => Promise<void>
+  triggerRoutingRecovery: (u: number, v: number) => Promise<void>
 
   // Actions
   setMode: (m: Mode) => void
@@ -80,8 +100,22 @@ export const useGraphStore = create<GraphStore>((set, get) => {
     showF2: true,
     engine,
     simulator: null,
+    routingEngine: new RoutingEngine(),
 
-    setMode: (m) => set({ mode: m }),
+    routingNodes: [],
+    routingEdges: [],
+    routingMetrics: null,
+    routingSource: null,
+    routingTarget: null,
+    routingPath: [],
+    routingActive: false,
+
+    setMode: (m) => {
+      set({ mode: m })
+      if (m === 'routing') {
+        get().fetchRoutingTopology()
+      }
+    },
     setStreaming: (v) => set({ isStreaming: v }),
     setDemoMode: (v) => set({ demoMode: v }),
     updateStats: (stats) => set(s => ({ stats: { ...s.stats, ...stats } })),
@@ -107,6 +141,86 @@ export const useGraphStore = create<GraphStore>((set, get) => {
         set({ graphId: id, demoMode: false })
       } catch {
         set({ demoMode: true })
+      }
+      
+      // Load initial routing topology if in routing mode
+      try {
+        await get().fetchRoutingTopology()
+      } catch (e) {
+        console.warn('Failed to fetch initial routing topology', e)
+      }
+    },
+
+    fetchRoutingTopology: async () => {
+      try {
+        const data = await get().routingEngine.getTopology()
+        set({
+          routingNodes: data.nodes,
+          routingEdges: data.edges,
+          routingMetrics: data.metrics
+        })
+      } catch (e) {
+        console.error('Error fetching routing topology', e)
+      }
+    },
+
+    setRoutingSource: (id) => {
+      set({ routingSource: id })
+      get().computeRoutingRoute()
+    },
+
+    setRoutingTarget: (id) => {
+      set({ routingTarget: id })
+      get().computeRoutingRoute()
+    },
+
+    computeRoutingRoute: async () => {
+      const { routingSource, routingTarget, routingEngine } = get()
+      if (routingSource === null || routingTarget === null) {
+        set({ routingPath: [] })
+        return
+      }
+      try {
+        const res = await routingEngine.computeRoute(routingSource, routingTarget)
+        set({ routingPath: res.path })
+      } catch (e) {
+        console.error('Error computing route', e)
+        set({ routingPath: [] })
+      }
+    },
+
+    toggleRoutingSimulation: async () => {
+      const { routingActive, routingEngine } = get()
+      try {
+        if (routingActive) {
+          await routingEngine.stopSimulation()
+          set({ routingActive: false })
+        } else {
+          await routingEngine.startSimulation(6.0)
+          set({ routingActive: true })
+        }
+      } catch (e) {
+        console.error('Error toggling routing simulation', e)
+      }
+    },
+
+    triggerRoutingFailure: async (u, v) => {
+      try {
+        await get().routingEngine.triggerFailure(u, v)
+        await get().fetchRoutingTopology()
+        await get().computeRoutingRoute()
+      } catch (e) {
+        console.error('Error triggering link failure', e)
+      }
+    },
+
+    triggerRoutingRecovery: async (u, v) => {
+      try {
+        await get().routingEngine.triggerRecovery(u, v)
+        await get().fetchRoutingTopology()
+        await get().computeRoutingRoute()
+      } catch (e) {
+        console.error('Error triggering link recovery', e)
       }
     },
 

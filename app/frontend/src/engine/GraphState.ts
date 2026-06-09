@@ -19,7 +19,32 @@ export interface Edge3D {
   isSpanning: boolean
 }
 
-export type Mode = 'live' | 'skeleton' | 'heatmap' | 'benchmark' | 'explainer'
+export type Mode = 'live' | 'skeleton' | 'heatmap' | 'benchmark' | 'explainer' | 'routing'
+
+export interface RoutingNode {
+  id: number
+  name: string
+  lat: number
+  lon: number
+  status: 'healthy' | 'failed'
+}
+
+export interface RoutingEdge {
+  u: number
+  v: number
+  w: number
+  status: 'healthy' | 'failed'
+  layer: 'F1' | 'F2'
+}
+
+export interface RoutingMetrics {
+  total_failures: number
+  total_recoveries: number
+  avg_convergence_ms: number
+  traffic_loss_pct: number
+  path_optimality_pct: number
+  active_failures: number
+}
 
 export interface AlgorithmStats {
   opsPerSec: number

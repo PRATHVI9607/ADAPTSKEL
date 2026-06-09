@@ -141,6 +141,13 @@ class BenchmarkService:
                 "scaling_data": scaling_data,
             }
             self._status[benchmark_id] = {"status": "done", "progress": 1.0}
+            
+            # Save to PostgreSQL
+            try:
+                from db import save_benchmark_run
+                save_benchmark_run(benchmark_id, config, self._results[benchmark_id])
+            except Exception as e:
+                print(f"[DB WARN] Failed to save benchmark to DB: {e}")
 
         except Exception as exc:
             self._status[benchmark_id] = {"status": "error", "progress": 0.0, "error": str(exc)}

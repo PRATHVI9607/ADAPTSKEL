@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Network, Zap, Trash2, Search, Play, Pause, SkipForward, Eye, EyeOff } from 'lucide-react'
 import { useGraphStore } from '../store'
+import { RoutingControlPanel } from './RoutingMode'
 
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
@@ -33,6 +34,11 @@ function Label({ children }: { children: React.ReactNode }) {
 
 export function ControlPanel() {
   const mode              = useGraphStore(s => s.mode)
+  
+  if (mode === 'routing') {
+    return <RoutingControlPanel />
+  }
+
   const loadPreset        = useGraphStore(s => s.loadPreset)
   const insertEdge        = useGraphStore(s => s.insertEdge)
   const deleteEdge        = useGraphStore(s => s.deleteEdge)

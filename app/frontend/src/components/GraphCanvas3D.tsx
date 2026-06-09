@@ -3,79 +3,110 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Line, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { useGraphStore } from '../store'
-import type { Node3D, Edge3D } from '../engine/GraphState'
+import type { Node3D, Edge3D, RoutingNode, RoutingEdge } from '../engine/GraphState'
+
+// ── Geographic Projection for ISP Routing Mode ──────────────────────────────
+export function projectGeographic(lat: number, lon: number): [number, number, number] {
+  // Center map around -96 degrees Longitude and 38 degrees Latitude
+  const x = (lon + 96) * 0.16
+  const y = (lat - 38) * 0.22
+  const z = -(x * x + y * y) * 0.025 // Curved Earth projection
+  return [x, y, z]
+}
+
+// ── Curved Arc Generator for Premium 3D Connections ──────────────────────────
+function getArcPoints(
+  p0: [number, number, number],
+  p1: [number, number, number],
+  segments: number = 20
+): THREE.Vector3[] {
+  const start = new THREE.Vector3(...p0)
+  const end = new THREE.Vector3(...p1)
+  const points: THREE.Vector3[] = []
+
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments
+    // Linear interpolation
+    const p = new THREE.Vector3().lerpVectors(start, end, t)
+    
+    // Add height bow (parabolic curve peaking in the middle)
+    const dist = start.distanceTo(end)
+    const h = Math.sin(t * Math.PI) * dist * 0.15
+    
+    // Push curve outward in Z / normal direction
+    p.y += h * 0.6
+    p.z += h * 0.8
+    points.push(p)
+  }
+  return points
+}
 
 // ── Colour helpers ──────────────────────────────────────────────────────────
 function nodeColor(node: Node3D, onPath: boolean): string {
-  if (onPath)          return '#16a34a'  // eco green — on shortest path
-  if (node.heat > 0.6) return '#dc2626'  // hot red
-  if (node.heat > 0.35) return '#d97706' // warm amber
-  return '#1d6fb5'                        // default sky blue
+  if (onPath)          return '#10b981'  // neon emerald green
+  if (node.heat > 0.6) return '#ef4444'  // hot red
+  if (node.heat > 0.3) return '#f59e0b'  // warm amber
+  return '#00d4ff'                        // electric cyan
 }
 
 function edgeColor(heat: number, inF1: boolean): THREE.Color {
-  if (!inF1) return new THREE.Color('#c8daea')     // F₂ — pale blue-gray
-  if (heat > 0.6) return new THREE.Color('#dc2626')  // very hot
-  if (heat > 0.3) return new THREE.Color('#d97706')  // warm
-  return new THREE.Color('#1d6fb5')                   // F₁ default sky blue
+  if (!inF1) return new THREE.Color('#3a3a4a')     // F₂ — dark gray-blue
+  if (heat > 0.6) return new THREE.Color('#ef4444')  // very hot red
+  if (heat > 0.3) return new THREE.Color('#f59e0b')  // warm amber
+  return new THREE.Color('#00d4ff')                   // F₁ electric cyan
 }
 
-// ── Single node sphere + HTML label ────────────────────────────────────────
+// ── Single node sphere ───────────────────────────────────────────────────────
 function NodeSphere({ node, onPath }: { node: Node3D; onPath: boolean }) {
   const color  = nodeColor(node, onPath)
-  const radius = 0.18 + node.degree * 0.025
-  const scale  = onPath ? 1.35 : 1.0
+  const radius = 0.14 + node.degree * 0.02
+  const scale  = onPath ? 1.4 : 1.0
 
   return (
     <group position={[node.x, node.y, node.z]}>
-      {/* Glow ring for path nodes */}
-      {onPath && (
-        <mesh scale={scale * 2.5}>
-          <sphereGeometry args={[radius, 16, 12]} />
-          <meshStandardMaterial
-            color="#16a34a"
-            transparent
-            opacity={0.12}
-            side={THREE.BackSide}
-          />
-        </mesh>
-      )}
+      {/* Glow aura */}
+      <mesh scale={scale * 2.0}>
+        <sphereGeometry args={[radius, 16, 12]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={onPath ? 0.22 : 0.07}
+        />
+      </mesh>
 
-      {/* Main sphere */}
+      {/* Core sphere */}
       <mesh scale={scale}>
         <sphereGeometry args={[radius, 16, 12]} />
         <meshStandardMaterial
           color={color}
-          roughness={0.25}
-          metalness={0.15}
+          roughness={0.1}
+          metalness={0.8}
           emissive={color}
-          emissiveIntensity={onPath ? 0.25 : 0.08}
+          emissiveIntensity={onPath ? 0.8 : 0.3}
         />
       </mesh>
 
-      {/* Node ID label — always visible, scales with distance */}
       <Html
         center
-        distanceFactor={10}
+        distanceFactor={9}
         style={{ pointerEvents: 'none' }}
         position={[0, radius * scale + 0.18, 0]}
       >
         <div
           style={{
-            background: color,
-            color: '#ffffff',
+            background: 'rgba(5, 5, 10, 0.85)',
+            color: color,
             borderRadius: '50%',
-            width: 20,
-            height: 20,
+            width: 18,
+            height: 18,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: 700,
             fontFamily: 'JetBrains Mono, monospace',
-            border: '2px solid white',
-            boxShadow: '0 1px 5px rgba(0,0,0,0.22)',
-            whiteSpace: 'nowrap',
+            border: `1.5px solid ${color}`,
+            boxShadow: '0 0 8px rgba(0,212,255,0.3)',
             userSelect: 'none',
           }}
         >
@@ -86,11 +117,92 @@ function NodeSphere({ node, onPath }: { node: Node3D; onPath: boolean }) {
   )
 }
 
-// ── Node layer ──────────────────────────────────────────────────────────────
+// ── Routing Node sphere (Mode 6) ─────────────────────────────────────────────
+function RoutingNodeSphere({ node, onPath }: { node: RoutingNode; onPath: boolean }) {
+  const isFailed = node.status === 'failed'
+  
+  const color = isFailed 
+    ? '#ef4444' // red
+    : (onPath ? '#10b981' : '#00d4ff') // green / cyan
+
+  const pos = projectGeographic(node.lat, node.lon)
+  const radius = 0.12
+  const scale = onPath ? 1.4 : 1.0
+
+  return (
+    <group position={pos}>
+      {/* Glow aura */}
+      <mesh scale={scale * 2.2}>
+        <sphereGeometry args={[radius, 16, 12]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={onPath ? 0.25 : 0.08}
+        />
+      </mesh>
+
+      {/* Core sphere */}
+      <mesh scale={scale}>
+        <sphereGeometry args={[radius, 16, 12]} />
+        <meshStandardMaterial
+          color={color}
+          roughness={0.1}
+          metalness={0.8}
+          emissive={color}
+          emissiveIntensity={onPath ? 0.9 : 0.3}
+        />
+      </mesh>
+
+      <Html
+        center
+        distanceFactor={10}
+        style={{ pointerEvents: 'none' }}
+        position={[0, radius * scale + 0.18, 0]}
+      >
+        <div
+          style={{
+            background: 'rgba(5, 5, 10, 0.85)',
+            backdropFilter: 'blur(4px)',
+            color: color,
+            padding: '2px 6px',
+            borderRadius: 6,
+            fontSize: 8,
+            fontWeight: 700,
+            fontFamily: 'Space Grotesk, sans-serif',
+            border: `1px solid ${color}88`,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            whiteSpace: 'nowrap',
+            userSelect: 'none',
+          }}
+        >
+          {node.name}
+        </div>
+      </Html>
+    </group>
+  )
+}
+
+// ── Node Layer Router ────────────────────────────────────────────────────────
 function NodeLayer() {
-  const nodes   = useGraphStore(s => [...s.nodes.values()])
+  const mode = useGraphStore(s => s.mode)
+  const nodes = useGraphStore(s => [...s.nodes.values()])
   const hotPath = useGraphStore(s => s.hotPath)
   const pathSet = useMemo(() => new Set(hotPath), [hotPath])
+
+  // Routing mode states
+  const routingNodes = useGraphStore(s => s.routingNodes)
+  const routingPath = useGraphStore(s => s.routingPath)
+  const rPathSet = useMemo(() => new Set(routingPath), [routingPath])
+
+  if (mode === 'routing') {
+    return (
+      <group>
+        {routingNodes.map(n => (
+          <RoutingNodeSphere key={n.id} node={n} onPath={rPathSet.has(n.id)} />
+        ))}
+      </group>
+    )
+  }
 
   return (
     <group>
@@ -103,15 +215,47 @@ function NodeLayer() {
 
 // ── Edge lines ───────────────────────────────────────────────────────────────
 function EdgeLines() {
-  const edges        = useGraphStore(s => [...s.edges.values()])
+  const mode = useGraphStore(s => s.mode)
+  const edges = useGraphStore(s => [...s.edges.values()])
   const skeletonEdges = useGraphStore(s => s.skeletonEdges)
-  const nodes        = useGraphStore(s => s.nodes)
-  const showF1       = useGraphStore(s => s.showF1)
-  const showF2       = useGraphStore(s => s.showF2)
+  const nodes = useGraphStore(s => s.nodes)
+  const showF1 = useGraphStore(s => s.showF1)
+  const showF2 = useGraphStore(s => s.showF2)
 
+  // Routing Mode states
+  const routingEdges = useGraphStore(s => s.routingEdges)
+  const routingNodes = useGraphStore(s => s.routingNodes)
+  const rNodeMap = useMemo(() => new Map(routingNodes.map(n => [n.id, n])), [routingNodes])
+
+  // Compute curved arcs for routing topology
+  const routingArcs = useMemo(() => {
+    if (mode !== 'routing') return []
+    return routingEdges.map(edge => {
+      const uNode = rNodeMap.get(edge.u)
+      const vNode = rNodeMap.get(edge.v)
+      if (!uNode || !vNode) return null
+
+      const p0 = projectGeographic(uNode.lat, uNode.lon)
+      const p1 = projectGeographic(vNode.lat, vNode.lon)
+      const arcPoints = getArcPoints(p0, p1, 16)
+      const isFailed = edge.status === 'failed'
+
+      return {
+        id: `${edge.u}-${edge.v}`,
+        points: arcPoints,
+        layer: edge.layer,
+        status: edge.status,
+        color: isFailed ? '#ef4444' : (edge.layer === 'F1' ? '#00d4ff' : '#2a2a35')
+      }
+    }).filter(Boolean)
+  }, [mode, routingEdges, rNodeMap])
+
+  // Standard edges
   const { f1Lines, f2Lines } = useMemo(() => {
     const f1: Array<{ p0: THREE.Vector3; p1: THREE.Vector3; color: THREE.Color }> = []
     const f2: Array<{ p0: THREE.Vector3; p1: THREE.Vector3 }> = []
+
+    if (mode === 'routing') return { f1Lines: f1, f2Lines: f2 }
 
     for (const edge of edges) {
       const nu = nodes.get(edge.u)
@@ -128,7 +272,34 @@ function EdgeLines() {
       }
     }
     return { f1Lines: f1, f2Lines: f2 }
-  }, [edges, nodes, skeletonEdges])
+  }, [mode, edges, nodes, skeletonEdges])
+
+  if (mode === 'routing') {
+    return (
+      <group>
+        {routingArcs.map((arc: any) => {
+          const isF1 = arc.layer === 'F1'
+          const isFailed = arc.status === 'failed'
+          if (isF1 && !showF1) return null
+          if (!isF1 && !showF2) return null
+
+          return (
+            <Line
+              key={arc.id}
+              points={arc.points}
+              color={arc.color}
+              lineWidth={isFailed ? 1.0 : (isF1 ? 2.2 : 0.8)}
+              transparent
+              opacity={isFailed ? 0.3 : (isF1 ? 0.95 : 0.4)}
+              dashed={isFailed}
+              dashSize={0.2}
+              gapSize={0.1}
+            />
+          )
+        })}
+      </group>
+    )
+  }
 
   return (
     <group>
@@ -136,7 +307,7 @@ function EdgeLines() {
         <Line
           key={`f2-${i}`}
           points={[p0, p1]}
-          color="#b8d0e8"
+          color="#333346"
           lineWidth={0.8}
           transparent
           opacity={0.55}
@@ -149,7 +320,7 @@ function EdgeLines() {
           color={color}
           lineWidth={2.2}
           transparent
-          opacity={0.9}
+          opacity={0.95}
         />
       ))}
     </group>
@@ -158,42 +329,124 @@ function EdgeLines() {
 
 // ── Hot / shortest path line ─────────────────────────────────────────────────
 function HotPathLine() {
+  const mode = useGraphStore(s => s.mode)
   const hotPath = useGraphStore(s => s.hotPath)
-  const nodes   = useGraphStore(s => s.nodes)
+  const nodes = useGraphStore(s => s.nodes)
 
+  // Routing Mode states
+  const routingPath = useGraphStore(s => s.routingPath)
+  const routingNodes = useGraphStore(s => s.routingNodes)
+  const rNodeMap = useMemo(() => new Map(routingNodes.map(n => [n.id, n])), [routingNodes])
+
+  // Curved path segments in routing mode
+  const routingPathPoints = useMemo(() => {
+    if (mode !== 'routing' || routingPath.length < 2) return []
+    const pts: THREE.Vector3[] = []
+    
+    for (let i = 0; i < routingPath.length - 1; i++) {
+      const uNode = rNodeMap.get(routingPath[i])
+      const vNode = rNodeMap.get(routingPath[i + 1])
+      if (!uNode || !vNode) continue
+      
+      const p0 = projectGeographic(uNode.lat, uNode.lon)
+      const p1 = projectGeographic(vNode.lat, vNode.lon)
+      const arc = getArcPoints(p0, p1, 12)
+      // Append points excluding the last to avoid double endpoints
+      pts.push(...arc.slice(0, -1))
+    }
+    // Append final node position
+    const lastNode = rNodeMap.get(routingPath[routingPath.length - 1])
+    if (lastNode) {
+      const lp = projectGeographic(lastNode.lat, lastNode.lon)
+      pts.push(new THREE.Vector3(...lp))
+    }
+    return pts
+  }, [mode, routingPath, rNodeMap])
+
+  // Standard path points
   const points = useMemo(() => {
+    if (mode === 'routing') return []
     const pts: THREE.Vector3[] = []
     for (const id of hotPath) {
       const n = nodes.get(id)
       if (n) pts.push(new THREE.Vector3(n.x, n.y, n.z))
     }
     return pts
-  }, [hotPath, nodes])
+  }, [mode, hotPath, nodes])
+
+  if (mode === 'routing') {
+    if (routingPathPoints.length < 2) return null
+    return (
+      <Line
+        points={routingPathPoints}
+        color="#10b981" // emerald green
+        lineWidth={3.8}
+        transparent
+        opacity={0.95}
+      />
+    )
+  }
 
   if (points.length < 2) return null
 
   return (
     <Line
       points={points}
-      color="#16a34a"
-      lineWidth={4}
+      color="#10b981"
+      lineWidth={3.5}
       dashed
-      dashSize={0.35}
-      gapSize={0.14}
+      dashSize={0.3}
+      gapSize={0.12}
       transparent
       opacity={0.95}
     />
   )
 }
 
-// ── Edge weight labels on the path ──────────────────────────────────────────
+// ── Path edge weight labels ──────────────────────────────────────────────────
 function PathEdgeLabels() {
+  const mode = useGraphStore(s => s.mode)
   const hotPath = useGraphStore(s => s.hotPath)
-  const nodes   = useGraphStore(s => s.nodes)
-  const edges   = useGraphStore(s => s.edges)
+  const nodes = useGraphStore(s => s.nodes)
+  const edges = useGraphStore(s => s.edges)
+
+  // Routing Mode states
+  const routingPath = useGraphStore(s => s.routingPath)
+  const routingNodes = useGraphStore(s => s.routingNodes)
+  const routingEdges = useGraphStore(s => s.routingEdges)
+  const rNodeMap = useMemo(() => new Map(routingNodes.map(n => [n.id, n])), [routingNodes])
+  const rEdgeMap = useMemo(() => new Map(routingEdges.map(e => [`${Math.min(e.u, e.v)}-${Math.max(e.u, e.v)}`, e])), [routingEdges])
 
   const labels = useMemo(() => {
-    const items: Array<{ pos: THREE.Vector3; weight: number }> = []
+    const items: Array<{ pos: THREE.Vector3; weight: number; key: string }> = []
+    
+    if (mode === 'routing') {
+      for (let i = 0; i < routingPath.length - 1; i++) {
+        const a = routingPath[i], b = routingPath[i + 1]
+        const na = rNodeMap.get(a), nb = rNodeMap.get(b)
+        if (!na || !nb) continue
+
+        const key = `${Math.min(a, b)}-${Math.max(a, b)}`
+        const edge = rEdgeMap.get(key)
+        if (!edge) continue
+
+        const p0 = projectGeographic(na.lat, na.lon)
+        const p1 = projectGeographic(nb.lat, nb.lon)
+        
+        // Midpoint of arc
+        const midX = (p0[0] + p1[0]) / 2
+        const midY = (p0[1] + p1[1]) / 2 + 0.1
+        const midZ = (p0[2] + p1[2]) / 2 + 0.2 // raise labels slightly
+
+        items.push({
+          pos: new THREE.Vector3(midX, midY, midZ),
+          weight: edge.w,
+          key: `r-${a}-${b}`
+        })
+      }
+      return items
+    }
+
     for (let i = 0; i < hotPath.length - 1; i++) {
       const a = hotPath[i], b = hotPath[i + 1]
       const na = nodes.get(a), nb = nodes.get(b)
@@ -206,31 +459,31 @@ function PathEdgeLabels() {
         (na.y + nb.y) / 2 + 0.18,
         (na.z + nb.z) / 2,
       )
-      items.push({ pos: mid, weight: edge.w })
+      items.push({ pos: mid, weight: edge.w, key: `${a}-${b}` })
     }
     return items
-  }, [hotPath, nodes, edges])
+  }, [mode, hotPath, nodes, edges, routingPath, rNodeMap, rEdgeMap])
 
   return (
     <>
-      {labels.map(({ pos, weight }, i) => (
-        <Html key={i} position={pos.toArray()} center distanceFactor={10} style={{ pointerEvents: 'none' }}>
+      {labels.map(({ pos, weight, key }) => (
+        <Html key={key} position={pos.toArray()} center distanceFactor={10} style={{ pointerEvents: 'none' }}>
           <div
             style={{
-              background: '#ffffff',
-              border: '1.5px solid #16a34a',
+              background: 'rgba(5, 5, 10, 0.9)',
+              border: '1.2px solid #10b981',
               borderRadius: 5,
               padding: '1px 5px',
-              fontSize: 9,
-              fontWeight: 600,
+              fontSize: 8,
+              fontWeight: 700,
               fontFamily: 'JetBrains Mono, monospace',
-              color: '#15803d',
+              color: '#10b981',
               whiteSpace: 'nowrap',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
               userSelect: 'none',
             }}
           >
-            {weight}
+            {weight} ms
           </div>
         </Html>
       ))}
@@ -238,13 +491,13 @@ function PathEdgeLabels() {
   )
 }
 
-// ── Scene lighting (soft white for light theme) ──────────────────────────────
+// ── Scene lighting (optimized for dark glowing elements) ──────────────────────
 function SceneLights() {
   return (
     <>
-      <ambientLight intensity={1.1} />
-      <directionalLight position={[8, 12, 8]}  intensity={0.6} color="#ffffff" />
-      <directionalLight position={[-6, -4, -6]} intensity={0.25} color="#ddeeff" />
+      <ambientLight intensity={0.3} />
+      <directionalLight position={[10, 10, 5]} intensity={0.5} color="#ffffff" />
+      <pointLight position={[0, 0, 5]} intensity={0.4} color="#00d4ff" />
     </>
   )
 }
@@ -253,7 +506,8 @@ function SceneLights() {
 function CanvasLegend() {
   const showF1 = useGraphStore(s => s.showF1)
   const showF2 = useGraphStore(s => s.showF2)
-  const hotPath = useGraphStore(s => s.hotPath)
+  const mode = useGraphStore(s => s.mode)
+  const pathActive = useGraphStore(s => mode === 'routing' ? s.routingPath.length > 0 : s.hotPath.length > 0)
 
   return (
     <div
@@ -264,13 +518,16 @@ function CanvasLegend() {
       }}
     >
       {showF1 && (
-        <LegendItem color="#1d6fb5" label="F₁ Skeleton (hot edges)" />
+        <LegendItem color="#00d4ff" label="F₁ Skeleton (hot fiber)" />
       )}
       {showF2 && (
-        <LegendItem color="#b8d0e8" label="F₂ Residual (cold edges)" />
+        <LegendItem color="#333346" label="F₂ Residual (cold fiber)" />
       )}
-      {hotPath.length > 0 && (
-        <LegendItem color="#16a34a" label="Shortest Path" dashed />
+      {pathActive && (
+        <LegendItem color="#10b981" label="Active Shortest Path" />
+      )}
+      {mode === 'routing' && (
+        <LegendItem color="#ef4444" label="Failed Link Segment (cut)" dashed />
       )}
     </div>
   )
@@ -291,11 +548,12 @@ function LegendItem({ color, label, dashed }: { color: string; label: string; da
       <span
         style={{
           fontFamily: 'Space Grotesk, sans-serif',
-          fontSize: 10,
-          fontWeight: 500,
-          color: '#334e6b',
-          background: 'rgba(255,255,255,0.85)',
-          padding: '1px 5px',
+          fontSize: 9,
+          fontWeight: 600,
+          color: 'var(--text-soft)',
+          background: 'rgba(5, 5, 10, 0.75)',
+          border: '1px solid var(--sky-border)',
+          padding: '2px 6px',
           borderRadius: 4,
           whiteSpace: 'nowrap',
         }}
@@ -306,48 +564,55 @@ function LegendItem({ color, label, dashed }: { color: string; label: string; da
   )
 }
 
-// ── Slow auto-rotate (stops when user interacts) ─────────────────────────────
+// ── Orbit Camera Control ─────────────────────────────────────────────────────
 function CameraRig() {
   const { camera } = useThree()
   const tick = useRef(0)
   const interacted = useRef(false)
+  const mode = useGraphStore(s => s.mode)
 
   useEffect(() => {
-    camera.position.set(0, 2, 13)
+    // Snap camera perspective for maps vs abstract graphs
+    if (mode === 'routing') {
+      camera.position.set(0, 0, 9)
+    } else {
+      camera.position.set(0, 2, 12)
+    }
     camera.lookAt(0, 0, 0)
-  }, [camera])
+    interacted.current = false
+  }, [camera, mode])
 
   useFrame((_, dt) => {
-    if (interacted.current) return
+    if (interacted.current || mode === 'routing') return
     tick.current += dt * 0.04
-    camera.position.x = Math.sin(tick.current) * 13
-    camera.position.z = Math.cos(tick.current) * 13
+    camera.position.x = Math.sin(tick.current) * 12
+    camera.position.z = Math.cos(tick.current) * 12
     camera.lookAt(0, 0, 0)
   })
 
   return (
     <OrbitControls
       enableDamping
-      dampingFactor={0.1}
-      minDistance={5}
-      maxDistance={28}
-      enablePan={false}
+      dampingFactor={0.07}
+      minDistance={4}
+      maxDistance={25}
+      enablePan={mode === 'routing'}
       onStart={() => { interacted.current = true }}
     />
   )
 }
 
-// ── Main export ──────────────────────────────────────────────────────────────
+// ── Main Canvas export ───────────────────────────────────────────────────────
 export function GraphCanvas3D() {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
         style={{ width: '100%', height: '100%' }}
-        camera={{ position: [0, 2, 13], fov: 58 }}
+        camera={{ position: [0, 2, 12], fov: 55 }}
         dpr={[1, 1.5]}
         gl={{ antialias: true, alpha: false }}
       >
-        <color attach="background" args={['#eef5fb']} />
+        <color attach="background" args={['#030307']} />
         <SceneLights />
         <NodeLayer />
         <EdgeLines />
@@ -356,7 +621,6 @@ export function GraphCanvas3D() {
         <CameraRig />
       </Canvas>
 
-      {/* 2D overlay legend */}
       <CanvasLegend />
     </div>
   )

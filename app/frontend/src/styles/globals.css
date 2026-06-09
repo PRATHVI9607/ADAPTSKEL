@@ -7,42 +7,42 @@
 /* ── Design Tokens ─────────────────────────────────────────── */
 :root {
   /* Page & surface */
-  --bg-main:      #f0f7ff;
-  --bg-surface:   #ffffff;
-  --bg-surface2:  #f4f9ff;
-  --bg-tinted:    #e8f4fd;
+  --bg-main:      #030307;
+  --bg-surface:   rgba(10, 10, 16, 0.82);
+  --bg-surface2:  rgba(15, 15, 25, 0.55);
+  --bg-tinted:    rgba(0, 212, 255, 0.05);
 
   /* Primary accent — sky blue */
-  --sky-blue:     #0284c7;
-  --sky-dark:     #0369a1;
-  --sky-light:    #e0f2fe;
-  --sky-border:   rgba(2, 132, 199, 0.2);
-  --sky-shadow:   rgba(2, 132, 199, 0.12);
+  --sky-blue:     #00d4ff;
+  --sky-dark:     #00a6cc;
+  --sky-light:    rgba(0, 212, 255, 0.1);
+  --sky-border:   rgba(0, 212, 255, 0.18);
+  --sky-shadow:   rgba(0, 212, 255, 0.04);
 
   /* Secondary accent — eco green */
-  --eco-green:    #16a34a;
-  --eco-dark:     #15803d;
-  --eco-light:    #dcfce7;
-  --eco-border:   rgba(22, 163, 74, 0.2);
+  --eco-green:    #10b981;
+  --eco-dark:     #059669;
+  --eco-light:    rgba(16, 185, 129, 0.1);
+  --eco-border:   rgba(16, 185, 129, 0.18);
 
   /* Graph layer colours */
-  --f1-edge:      #1d6fb5;
-  --f2-edge:      #bdd5ea;
-  --path-color:   #16a34a;
-  --heat-warm:    #d97706;
-  --heat-hot:     #dc2626;
-  --node-default: #1d6fb5;
-  --node-hot:     #d97706;
-  --node-path:    #16a34a;
+  --f1-edge:      #00d4ff;
+  --f2-edge:      #333346;
+  --path-color:   #10b981;
+  --heat-warm:    #f59e0b;
+  --heat-hot:     #ef4444;
+  --node-default: #00d4ff;
+  --node-hot:     #f59e0b;
+  --node-path:    #10b981;
 
   /* Text */
-  --text-dark:    #0f2240;
-  --text-mid:     #334e6b;
-  --text-soft:    #7a96b8;
+  --text-dark:    #f1f5f9;
+  --text-mid:     #94a3b8;
+  --text-soft:    #64748b;
 
   /* Action colours */
-  --insert-col:   #16a34a;
-  --delete-col:   #dc2626;
+  --insert-col:   #10b981;
+  --delete-col:   #ef4444;
 
   /* Legacy aliases kept for components that still reference them */
   --skeleton-blue: var(--sky-blue);
@@ -83,19 +83,20 @@ html, body, #root {
 .font-display  { font-family: 'Space Grotesk', sans-serif; }
 .font-mono     { font-family: 'JetBrains Mono', monospace; }
 
-/* ── Glass Panel (light) ─────────────────────────────────────── */
+/* ── Glass Panel (dark glassmorphism) ───────────────────────── */
 .glass-panel {
   background: var(--bg-surface);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--sky-border);
-  box-shadow: 0 2px 16px var(--sky-shadow);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   border-radius: 12px;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(2, 132, 199, 0.25); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(2, 132, 199, 0.45); }
+::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.25); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 255, 0.45); }
 
 /* ── Mode Tab ────────────────────────────────────────────────── */
 .mode-tab {
@@ -123,7 +124,7 @@ html, body, #root {
   color: var(--sky-blue);
   background: var(--sky-light);
   border-color: var(--sky-blue);
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.25);
 }
 
 /* ── Stat Value ──────────────────────────────────────────────── */
@@ -158,7 +159,7 @@ html, body, #root {
 
 .gs-input:focus {
   border-color: var(--sky-blue);
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.25);
 }
 
 .gs-input::placeholder { color: var(--text-soft); }
@@ -176,42 +177,42 @@ html, body, #root {
   cursor: pointer;
   transition: all 0.18s;
   background: var(--sky-light);
-  color: var(--sky-dark);
+  color: var(--text-dark);
 }
 
 .gs-btn:hover {
-  background: #bae6fd;
+  background: rgba(0, 212, 255, 0.2);
   border-color: var(--sky-blue);
-  box-shadow: 0 2px 8px var(--sky-shadow);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.25);
 }
 
 .gs-btn:active { transform: scale(0.97); }
 
 .gs-btn.danger {
-  background: #fee2e2;
-  color: #b91c1c;
-  border-color: rgba(220, 38, 38, 0.2);
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.25);
 }
 .gs-btn.danger:hover {
-  background: #fecaca;
-  border-color: var(--delete-col);
-  box-shadow: 0 2px 8px rgba(220,38,38,0.12);
+  background: rgba(239, 68, 68, 0.22);
+  border-color: #f87171;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
 }
 
 .gs-btn.success {
   background: var(--eco-light);
-  color: var(--eco-dark);
+  color: #34d399;
   border-color: var(--eco-border);
 }
 .gs-btn.success:hover {
-  background: #bbf7d0;
-  border-color: var(--eco-green);
-  box-shadow: 0 2px 8px rgba(22,163,74,0.12);
+  background: rgba(16, 185, 129, 0.22);
+  border-color: #34d399;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
 }
 
 /* ── Progress bar ────────────────────────────────────────────── */
 .progress-track {
-  background: rgba(2, 132, 199, 0.08);
+  background: rgba(0, 212, 255, 0.08);
   border-radius: 4px;
   height: 6px;
   overflow: hidden;
@@ -243,14 +244,14 @@ html, body, #root {
 .step-card.active {
   border-left-color: var(--eco-green);
   background: var(--eco-light);
-  box-shadow: 0 2px 12px var(--eco-border);
+  box-shadow: 0 0 12px var(--eco-border);
 }
 
 /* ── Demo badge ──────────────────────────────────────────────── */
 .demo-badge {
-  background: #fef3c7;
-  border: 1px solid rgba(217, 119, 6, 0.3);
-  color: #b45309;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
   font-family: 'Space Grotesk', sans-serif;
   font-size: 0.65rem;
   font-weight: 700;
@@ -269,7 +270,7 @@ html, body, #root {
 
 /* ── Query trace panel ───────────────────────────────────────── */
 .query-trace-panel {
-  background: linear-gradient(135deg, #f0fdf4, #f0f9ff);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(0, 212, 255, 0.08));
   border: 1.5px solid var(--eco-border);
   border-radius: 12px;
   padding: 14px;
@@ -286,7 +287,7 @@ html, body, #root {
 }
 
 .path-node-badge {
-  background: var(--sky-blue);
+  background: var(--sky-dark);
   color: white;
   border-radius: 50%;
   width: 24px;
@@ -304,11 +305,12 @@ html, body, #root {
 }
 
 .path-weight-badge {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   padding: 1px 5px;
   font-size: 0.68rem;
   color: var(--text-mid);
   white-space: nowrap;
 }
+
