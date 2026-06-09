@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile.backend
     container_name: ADAPTSKEL_minimal_backend
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=info
@@ -32,11 +32,11 @@ services:
       dockerfile: Dockerfile
     container_name: ADAPTSKEL_minimal_frontend
     ports:
-      - "5173:5173"
+      - "5174:5173"
     depends_on:
       - backend
     environment:
-      - VITE_API_BASE=http://localhost:8000
+      - VITE_API_BASE=http://localhost:8001
       - NODE_ENV=development
     volumes:
       - ./app/frontend/src:/app/src
