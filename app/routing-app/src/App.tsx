@@ -82,8 +82,8 @@ export default function App() {
   const tickCounter = useRef(0)
 
   // Map view config
-  const mapCenter: [number, number] = [39.8283, -98.5795]
-  const mapZoom = 4
+  const mapCenter: [number, number] = [20.5937, 78.9629]
+  const mapZoom = 5
 
   // Poll simulation status and topology
   const refreshTopology = async () => {
