@@ -37,6 +37,9 @@ build/
 app/frontend/node_modules/
 app/frontend/dist/
 app/frontend/.vite/
+app/routing-app/node_modules/
+app/routing-app/dist/
+app/routing-app/.vite/
 
 # ── Benchmark datasets (can be large) ────────────────────────────────────────
 benchmarks/datasets/*

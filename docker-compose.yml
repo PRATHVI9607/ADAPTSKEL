@@ -51,6 +51,23 @@ services:
       - adaptskel-net
     restart: unless-stopped
 
+  routing-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.routing-app
+    container_name: ADAPTSKEL_compresive_routing
+    ports:
+      - "5175:5174"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - VITE_API_BASE=http://localhost:8000
+      - NODE_ENV=development
+    networks:
+      - adaptskel-net
+    restart: unless-stopped
+
   db:
     image: postgres:15-alpine
     container_name: ADAPTSKEL_compresive_db
