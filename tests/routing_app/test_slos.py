@@ -39,7 +39,7 @@ def test_query_throughput():
     t0 = time.perf_counter()
     num_queries = 200
     for _ in range(num_queries):
-        sim.route_engine.route(0, 49)
+        sim.route_engine.route(0, 33)
         
     duration = time.perf_counter() - t0
     qps = num_queries / duration

@@ -185,10 +185,10 @@ class ISPRoutingSimulation:
 
     def _verify_against_oracle(self, u: int, v: int) -> None:
         """Verify routing accuracy for a test query when topology changes."""
-        # Simple test query from node 0 to 49
+        # Simple test query from node 0 to 33
         try:
-            adaptskel_dist = self.adaptskel.query(0, 49)
-            oracle_dist = nx.shortest_path_length(self.adaptskel._G, 0, 49, weight="weight")
+            adaptskel_dist = self.adaptskel.query(0, 33)
+            oracle_dist = nx.shortest_path_length(self.adaptskel._G, 0, 33, weight="weight")
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             adaptskel_dist = float('inf')
             oracle_dist = float('inf')
