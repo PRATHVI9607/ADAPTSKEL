@@ -17,7 +17,6 @@ WORKDIR /app
 RUN npm install -g serve@14.2.0
 
 COPY --from=builder /app/dist /app/dist
-COPY --from=builder /app/public /app/public
 
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
