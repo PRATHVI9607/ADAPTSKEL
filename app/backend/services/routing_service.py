@@ -11,9 +11,8 @@ import threading
 import time
 from typing import Any, Optional
 
-# Add core/python and routing paths to path
+# Add core/python to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'core', 'python'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'core', 'python', 'routing'))
 
 from routing.simulation import ISPRoutingSimulation
 from db import log_routing_event
