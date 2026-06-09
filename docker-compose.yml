@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: adaptskel-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=info
+      - ENV=development
+      - DATABASE_URL=postgresql://adaptskel:adaptskel_dev@db:5432/adaptskel_db
+    volumes:
+      - ./benchmarks/results:/app/benchmarks/results
+      - ./core/python:/app/core/python
+      - ./app/backend:/app/app/backend
+    networks:
+      - adaptskel-net
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./app/frontend
+      dockerfile: Dockerfile
+    container_name: adaptskel-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - VITE_API_BASE=http://localhost:8000
+      - VITE_WS_BASE=ws://localhost:8000
+      - NODE_ENV=development
+    volumes:
+      - ./app/frontend/src:/app/src
+      - ./app/frontend/public:/app/public
+    networks:
+      - adaptskel-net
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: adaptskel-db
+    environment:
+      - POSTGRES_USER=adaptskel
+      - POSTGRES_PASSWORD=adaptskel_dev
+      - POSTGRES_DB=adaptskel_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - adaptskel-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adaptskel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  adaptskel-net:
+    driver: bridge
+
+volumes:
+  postgres_data:

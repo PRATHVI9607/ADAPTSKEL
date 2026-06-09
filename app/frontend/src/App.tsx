@@ -14,6 +14,7 @@ const MODES: { id: Mode; label: string; desc: string }[] = [
   { id: 'heatmap',   label: 'Heat Map',      desc: 'Edge heat visualiser' },
   { id: 'benchmark', label: 'Benchmark',     desc: 'Performance comparison' },
   { id: 'explainer', label: 'Explainer',     desc: 'Step-by-step walkthrough' },
+  { id: 'routing',   label: 'ISP Routing',   desc: 'ISP network backbone routing simulation' },
 ]
 
 export default function App() {

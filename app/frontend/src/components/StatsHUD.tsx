@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGraphStore } from '../store'
 import { Activity, Layers, Zap, TrendingUp, Clock, Navigation } from 'lucide-react'
+import { RoutingStatsHUD } from './RoutingMode'
 
 function StatRow({ label, value, unit, color }: {
   label: string; value: string | number; unit?: string; color?: string
@@ -208,6 +209,11 @@ function HowStep({ ok, text, highlight }: { ok: boolean; text: string; highlight
 // ── Main stats HUD ──────────────────────────────────────────────────────────
 export function StatsHUD() {
   const stats = useGraphStore(s => s.stats)
+  const mode = useGraphStore(s => s.mode)
+
+  if (mode === 'routing') {
+    return <RoutingStatsHUD />
+  }
 
   const speedup = stats.avgQueryUs > 0
     ? Math.max(1, 28 / Math.max(0.1, stats.avgQueryUs) * 12)
