@@ -15,7 +15,6 @@ export function LiveStreamMode() {
   const setStreaming  = useGraphStore(s => s.setStreaming)
   const isStreaming   = useGraphStore(s => s.isStreaming)
   const [bars, setBars]    = useState<TimingBar[]>([])
-  const [paused, setPaused] = useState(false)
 
   useEffect(() => {
     if (!activeQuery) return
@@ -25,7 +24,6 @@ export function LiveStreamMode() {
   }, [activeQuery])
 
   const handlePause = useCallback(() => {
-    setPaused(p => !p)
     setStreaming(!isStreaming)
   }, [isStreaming, setStreaming])
 
@@ -65,15 +63,15 @@ export function LiveStreamMode() {
       {/* Pause button */}
       <div style={{ position: 'absolute', top: 12, right: 12, pointerEvents: 'all' }}>
         <button type="button" className="gs-btn" onClick={handlePause} style={{ fontSize: '0.7rem' }}>
-          {paused ? '▶ Resume' : '⏸ Pause'}
+          {isStreaming ? '⏸ Pause' : '▶ Resume'}
         </button>
       </div>
 
       {/* Timing bars — fade in at bottom */}
       <div style={{
-        background: 'rgba(255,255,255,0.88)', borderRadius: 10,
+        background: 'rgba(10, 10, 16, 0.9)', borderRadius: 10,
         border: '1px solid var(--sky-border)', padding: '10px 14px',
-        backdropFilter: 'blur(8px)',
+        backdropFilter: 'blur(12px)', boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
       }}>
         <div style={{ fontFamily: 'Space Grotesk', fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
           Live Query Timings

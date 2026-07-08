@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001'
 
 export class AdaptSkelEngine {
   private graphId: string | null = null
@@ -103,7 +103,9 @@ export class AdaptSkelEngine {
 
   openStream(onMessage: (event: MessageEvent) => void): WebSocket {
     const id = this.requireId()
-    const ws = new WebSocket(`ws://localhost:8000/api/graph/${id}/stream`)
+    const wsUrl = new URL(API_BASE)
+    wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+    const ws = new WebSocket(`${wsUrl.origin}/api/graph/${id}/stream`)
     ws.onmessage = onMessage
     return ws
   }

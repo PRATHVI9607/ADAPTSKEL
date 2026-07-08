@@ -10,7 +10,7 @@ from math import ceil, log2
 from typing import Optional
 
 import networkx as nx
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 # Shared graph stores imported from main module at runtime to avoid circular imports
@@ -50,26 +50,28 @@ class PresetRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Lazy import of stores from main to avoid circular import
+# Shared stores, reached via request.app.state (set once in main.py at
+# startup). Deliberately NOT `import main` — under the gunicorn/docker launch
+# path (`app.backend.main:app`) that re-imports main.py as a second, distinct
+# module and creates a disconnected copy of graph_store/graph_nx_store.
 # ---------------------------------------------------------------------------
 
-def _get_stores():
-    """Return (graph_store, graph_nx_store) from the running app."""
-    import main as _main
-    return _main.graph_store, _main.graph_nx_store
+def _get_stores(request: Request):
+    """Return (graph_store, graph_nx_store) from the running app's state."""
+    return request.app.state.graph_store, request.app.state.graph_nx_store
 
 
-def _get_service(graph_id: str):
+def _get_service(request: Request, graph_id: str):
     """Retrieve AdaptSkelService or raise 404."""
-    store, _ = _get_stores()
+    store, _ = _get_stores(request)
     svc = store.get(graph_id)
     if svc is None:
         raise HTTPException(status_code=404, detail=f"Graph '{graph_id}' not found")
     return svc
 
 
-def _get_nx(graph_id: str) -> nx.Graph:
-    _, nx_store = _get_stores()
+def _get_nx(request: Request, graph_id: str) -> nx.Graph:
+    _, nx_store = _get_stores(request)
     g = nx_store.get(graph_id)
     if g is None:
         raise HTTPException(status_code=404, detail=f"Graph '{graph_id}' not found")
@@ -81,7 +83,7 @@ def _get_nx(graph_id: str) -> nx.Graph:
 # ---------------------------------------------------------------------------
 
 @router.post("/create")
-def create_graph(req: CreateGraphRequest):
+def create_graph(req: CreateGraphRequest, request: Request):
     """Create a new graph instance, return its ID."""
     from services.adaptskel_service import AdaptSkelService
 
@@ -89,7 +91,7 @@ def create_graph(req: CreateGraphRequest):
     config = req.config.model_dump()
     svc = AdaptSkelService(config=config)
 
-    store, nx_store = _get_stores()
+    store, nx_store = _get_stores(request)
     store[graph_id] = svc
     nx_store[graph_id] = nx.Graph()
 
@@ -101,10 +103,10 @@ def create_graph(req: CreateGraphRequest):
 # ---------------------------------------------------------------------------
 
 @router.post("/{graph_id}/insert")
-def insert_edge(graph_id: str, req: InsertEdgeRequest):
+def insert_edge(graph_id: str, req: InsertEdgeRequest, request: Request):
     """Insert edge (u, v, w) into the graph."""
-    svc = _get_service(graph_id)
-    nx_g = _get_nx(graph_id)
+    svc = _get_service(request, graph_id)
+    nx_g = _get_nx(request, graph_id)
 
     result = svc.insert(req.u, req.v, req.w)
 
@@ -119,10 +121,10 @@ def insert_edge(graph_id: str, req: InsertEdgeRequest):
 # ---------------------------------------------------------------------------
 
 @router.delete("/{graph_id}/edge/{u}/{v}")
-def delete_edge(graph_id: str, u: int, v: int):
+def delete_edge(graph_id: str, u: int, v: int, request: Request):
     """Delete edge (u, v) from the graph."""
-    svc = _get_service(graph_id)
-    nx_g = _get_nx(graph_id)
+    svc = _get_service(request, graph_id)
+    nx_g = _get_nx(request, graph_id)
 
     result = svc.delete(u, v)
 
@@ -138,9 +140,9 @@ def delete_edge(graph_id: str, u: int, v: int):
 # ---------------------------------------------------------------------------
 
 @router.post("/{graph_id}/query")
-def query_path(graph_id: str, req: QueryRequest):
+def query_path(graph_id: str, req: QueryRequest, request: Request):
     """Return shortest-path distance and path from source to target."""
-    svc = _get_service(graph_id)
+    svc = _get_service(request, graph_id)
     return svc.query(req.source, req.target)
 
 
@@ -149,9 +151,9 @@ def query_path(graph_id: str, req: QueryRequest):
 # ---------------------------------------------------------------------------
 
 @router.get("/{graph_id}/stats")
-def get_stats(graph_id: str):
+def get_stats(graph_id: str, request: Request):
     """Return engine statistics."""
-    svc = _get_service(graph_id)
+    svc = _get_service(request, graph_id)
     return svc.get_stats()
 
 
@@ -160,9 +162,9 @@ def get_stats(graph_id: str):
 # ---------------------------------------------------------------------------
 
 @router.get("/{graph_id}/skeleton")
-def get_skeleton(graph_id: str):
+def get_skeleton(graph_id: str, request: Request):
     """Return the F1 skeleton edge list with heat scores."""
-    svc = _get_service(graph_id)
+    svc = _get_service(request, graph_id)
     edges = svc.get_skeleton()
     return {"edges": edges}
 
@@ -172,9 +174,9 @@ def get_skeleton(graph_id: str):
 # ---------------------------------------------------------------------------
 
 @router.get("/{graph_id}/heat")
-def get_heat(graph_id: str):
+def get_heat(graph_id: str, request: Request):
     """Return all edge heat scores as a {edge_key: score} dict."""
-    svc = _get_service(graph_id)
+    svc = _get_service(request, graph_id)
     scores = svc.get_heat()
     return {"scores": scores}
 
@@ -184,10 +186,10 @@ def get_heat(graph_id: str):
 # ---------------------------------------------------------------------------
 
 @router.post("/{graph_id}/preset")
-def load_preset(graph_id: str, req: PresetRequest):
+def load_preset(graph_id: str, req: PresetRequest, request: Request):
     """Populate graph with a preset random topology."""
-    svc = _get_service(graph_id)
-    nx_g = _get_nx(graph_id)
+    svc = _get_service(request, graph_id)
+    nx_g = _get_nx(request, graph_id)
 
     # Edge density per preset type
     prob = {"random": 0.25, "road": 0.15, "social": 0.20, "adversarial": 0.30}.get(req.preset, 0.25)
@@ -232,7 +234,7 @@ async def stream_graph(websocket: WebSocket, graph_id: str):
     """
     await websocket.accept()
 
-    store, nx_store = _get_stores()
+    store, nx_store = _get_stores(websocket)
     if graph_id not in store:
         await websocket.send_json({"type": "ERROR", "message": f"Graph '{graph_id}' not found"})
         await websocket.close()

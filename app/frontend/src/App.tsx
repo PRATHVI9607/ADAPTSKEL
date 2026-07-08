@@ -29,12 +29,12 @@ export default function App() {
 
   return (
     <div
+      className="app-shell"
       style={{
         width: '100vw',
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--bg-main)',
         overflow: 'hidden',
       }}
     >
@@ -47,10 +47,12 @@ export default function App() {
           justifyContent: 'space-between',
           padding: '0 20px',
           borderBottom: '1px solid var(--sky-border)',
-          background: 'var(--bg-surface)',
-          boxShadow: '0 1px 8px var(--sky-shadow)',
+          background: 'rgba(10, 10, 16, 0.88)',
+          backdropFilter: 'blur(18px)',
+          boxShadow: '0 1px 8px rgba(0, 0, 0, 0.18)',
           zIndex: 100,
           flexShrink: 0,
+          position: 'relative',
         }}
       >
         {/* Logo */}
@@ -78,7 +80,7 @@ export default function App() {
         </div>
 
         {/* Mode Tabs */}
-        <nav style={{ display: 'flex', gap: 4 }}>
+        <nav style={{ display: 'flex', gap: 4, flexWrap: 'nowrap', justifyContent: 'center', maxWidth: '52vw', overflowX: 'auto', minWidth: 0 }}>
           {MODES.map(m => (
             <button
               key={m.id}
@@ -114,7 +116,7 @@ export default function App() {
       </header>
 
       {/* ── Body ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative', background: 'var(--bg-main)' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative', minWidth: 0 }}>
         {/* Left Panel */}
         <motion.div
           key="ctrl"
@@ -122,7 +124,7 @@ export default function App() {
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.3 }}
           style={{
-            width: 'var(--panel-w)', flexShrink: 0,
+            width: 'var(--panel-w)', minWidth: 'var(--panel-w)', flexShrink: 0,
             overflowY: 'auto', padding: '10px 10px',
             zIndex: 10, borderRight: '1px solid var(--sky-border)',
             background: 'var(--bg-surface2)',
@@ -132,7 +134,7 @@ export default function App() {
         </motion.div>
 
         {/* Main Canvas */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
           <GraphCanvas3D />
           <AnimatePresence mode="wait">
             <ModeOverlay key={mode} />
@@ -146,7 +148,7 @@ export default function App() {
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.05 }}
           style={{
-            width: 'var(--panel-w)', flexShrink: 0,
+            width: 'var(--panel-w)', minWidth: 'var(--panel-w)', flexShrink: 0,
             overflowY: 'auto', padding: '10px 10px',
             zIndex: 10, borderLeft: '1px solid var(--sky-border)',
             background: 'var(--bg-surface2)',
@@ -158,7 +160,7 @@ export default function App() {
 
       {/* ── Footer Benchmark Bar ──────────────────────────────── */}
       <div style={{
-        flexShrink: 0, height: 'var(--bench-h)',
+        flexShrink: 0, height: 'var(--bench-h)', minHeight: 'var(--bench-h)',
         borderTop: '1px solid var(--sky-border)',
         background: 'var(--bg-surface)',
       }}>

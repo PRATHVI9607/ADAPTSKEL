@@ -56,9 +56,9 @@
   --glass-border: var(--sky-border);
   --space-black:  var(--bg-main);
 
-  --panel-w:  290px;
-  --header-h:  58px;
-  --bench-h:   84px;
+  --panel-w:  clamp(250px, 22vw, 320px);
+  --header-h: clamp(56px, 6vh, 64px);
+  --bench-h:  clamp(76px, 8vh, 92px);
 }
 
 /* ── Base Reset ─────────────────────────────────────────────── */
@@ -77,6 +77,44 @@ html, body, #root {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(0, 212, 255, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.08), transparent 24%),
+    radial-gradient(circle at bottom, rgba(2, 132, 199, 0.08), transparent 30%),
+    var(--bg-main);
+}
+
+::selection {
+  background: rgba(0, 212, 255, 0.22);
+  color: var(--text-dark);
+}
+
+.app-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(0, 212, 255, 0.06), transparent 28%),
+    radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.05), transparent 24%),
+    linear-gradient(180deg, rgba(10, 10, 16, 0.78), rgba(3, 3, 7, 0.95));
+}
+
+.app-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02), transparent 24%),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.015), transparent 30%);
+  opacity: 0.55;
 }
 
 /* ── Typography ─────────────────────────────────────────────── */
@@ -88,7 +126,7 @@ html, body, #root {
   background: var(--bg-surface);
   backdrop-filter: blur(20px);
   border: 1px solid var(--sky-border);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
   border-radius: 12px;
 }
 
@@ -125,6 +163,16 @@ html, body, #root {
   background: var(--sky-light);
   border-color: var(--sky-blue);
   box-shadow: 0 0 10px rgba(0, 212, 255, 0.25);
+}
+
+.mode-tab:focus-visible,
+.gs-btn:focus-visible,
+.gs-input:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input[type='range']:focus-visible {
+  outline: 2px solid rgba(0, 212, 255, 0.85);
+  outline-offset: 2px;
 }
 
 /* ── Stat Value ──────────────────────────────────────────────── */
@@ -312,5 +360,26 @@ html, body, #root {
   font-size: 0.68rem;
   color: var(--text-mid);
   white-space: nowrap;
+}
+
+@media (max-width: 1280px) {
+  :root {
+    --panel-w: clamp(230px, 24vw, 286px);
+  }
+
+  .mode-tab {
+    padding: 6px 11px;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 1080px) {
+  :root {
+    --panel-w: 228px;
+  }
+
+  .app-shell {
+    min-width: 1080px;
+  }
 }
 

@@ -24,6 +24,13 @@ graph_store: dict = {}
 # networkx graph mirror for oracle verification: graph_id -> nx.Graph
 graph_nx_store: dict = {}
 
+# Expose the stores via app.state so routers can reach the *same* dicts through
+# `request.app.state` instead of re-importing this module (re-importing "main"
+# under a different module identity — e.g. under gunicorn's "app.backend.main:app"
+# dotted path — creates a second, disconnected copy of these stores).
+app.state.graph_store = graph_store
+app.state.graph_nx_store = graph_nx_store
+
 from routers import graph, benchmark, routing
 from db import init_db
 

@@ -73,10 +73,11 @@ class RoutingService:
 
             # Retrieve report metrics
             rep = self.sim.metrics.report()
+            live_slos = self.sim.evaluate_current_slos()
             self.metrics.update({
                 "avg_convergence_ms": rep["avg_convergence_ms"],
-                "traffic_loss_pct": rep["avg_traffic_loss_pct"],
-                "path_optimality_pct": rep["avg_path_optimality_pct"],
+                "traffic_loss_pct": live_slos["traffic_loss_pct"],
+                "path_optimality_pct": live_slos["path_optimality_pct"],
                 "active_failures": len(self.sim.failure_sim.failed_links)
             })
 
@@ -110,12 +111,19 @@ class RoutingService:
             if "error" in res:
                 return res
             self.metrics["total_failures"] += 1
+            live_slos = self.sim.evaluate_current_slos()
+            self.metrics.update({
+                "traffic_loss_pct": live_slos["traffic_loss_pct"],
+                "path_optimality_pct": live_slos["path_optimality_pct"],
+                "active_failures": len(self.sim.failure_sim.failed_links),
+            })
             return {
                 "success": True,
                 "u": u,
                 "v": v,
                 "convergence_time_ms": res["convergence_time_ms"],
-                "traffic_loss_pct": self.sim.metrics.report()["avg_traffic_loss_pct"]
+                "traffic_loss_pct": live_slos["traffic_loss_pct"],
+                "path_optimality_pct": live_slos["path_optimality_pct"]
             }
 
     def simulate_recovery(self, u: int, v: int) -> dict:
@@ -125,11 +133,19 @@ class RoutingService:
             if "error" in res:
                 return res
             self.metrics["total_recoveries"] += 1
+            live_slos = self.sim.evaluate_current_slos()
+            self.metrics.update({
+                "traffic_loss_pct": live_slos["traffic_loss_pct"],
+                "path_optimality_pct": live_slos["path_optimality_pct"],
+                "active_failures": len(self.sim.failure_sim.failed_links),
+            })
             return {
                 "success": True,
                 "u": u,
                 "v": v,
-                "convergence_time_ms": res["convergence_time_ms"]
+                "convergence_time_ms": res["convergence_time_ms"],
+                "traffic_loss_pct": live_slos["traffic_loss_pct"],
+                "path_optimality_pct": live_slos["path_optimality_pct"]
             }
 
     def start_simulation(self, interval_sec: float = 8.0) -> dict:
@@ -138,15 +154,10 @@ class RoutingService:
         interval_sec is translated into an appropriate speed factor.
         """
         with self.lock:
-            if self.sim_active:
-                return {"status": "already running"}
-            self.sim_active = True
-            
-            # Map interval_sec to sim_speed
-            # Low interval means high speed
-            # Let's say: 8.0s interval = 50000.0 speed.
-            # speed = 400000.0 / interval_sec
             self.sim_speed = 400000.0 / max(0.1, interval_sec)
+            if self.sim_active:
+                return {"status": "updated", "speed_factor": self.sim_speed}
+            self.sim_active = True
             
             self.sim_thread = threading.Thread(
                 target=self._run_simulation,

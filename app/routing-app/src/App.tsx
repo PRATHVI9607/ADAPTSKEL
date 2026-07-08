@@ -4,7 +4,7 @@ import L from 'leaflet'
 import { Play, Pause, RefreshCw, AlertTriangle, ShieldCheck, Activity, Download, Layers, MapPin, Globe } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts'
 
-const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8001'
 
 interface CityNode {
   id: number
@@ -45,6 +45,7 @@ interface HistoryPoint {
   tick: number
   convergence: number
   loss: number
+  activeFailures: number
 }
 
 // Map standardizer helper
@@ -54,6 +55,22 @@ function MapController({ center, zoom }: { center: [number, number], zoom: numbe
     map.setView(center, zoom)
   }, [center, zoom, map])
   return null
+}
+
+function paddedDomain(values: number[], fallbackMax: number, floor = 0): [number, number] {
+  if (values.length === 0) return [floor, fallbackMax]
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const spread = max - min
+
+  if (spread === 0) {
+    const pad = Math.max(fallbackMax * 0.08, 0.01)
+    return [Math.max(floor, min - pad), max + pad]
+  }
+
+  const pad = spread * 0.35
+  return [Math.max(floor, min - pad), max + pad]
 }
 
 export default function App() {
@@ -85,50 +102,57 @@ export default function App() {
   const mapCenter: [number, number] = [20.5937, 78.9629]
   const mapZoom = 5
 
+  const syncSimulationStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/routing/simulation/status`)
+      const data = await res.json()
+      setSimActive(Boolean(data.active))
+      return Boolean(data.active)
+    } catch (err) {
+      return null
+    }
+  }
+
   // Poll simulation status and topology
   const refreshTopology = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/routing/topology`)
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        throw new Error(`HTTP ${res.status} ${res.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`)
+      }
       const data = await res.json()
       setNodes(data.nodes)
       setEdges(data.edges)
       setMetrics(data.metrics)
     } catch (err) {
-      addLog('error', 'Failed to fetch network topology from backend service.')
+      addLog('error', `Failed to fetch network topology from backend service (${API_BASE}): ${err instanceof Error ? err.message : err}`)
     }
-  }
-
-  const checkSimStatus = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/routing/simulation/status`)
-      const data = await res.json()
-      setSimActive(data.active)
-    } catch (err) {}
   }
 
   // Effect to pull initial data and poll updates
   useEffect(() => {
     refreshTopology()
-    checkSimStatus()
+    syncSimulationStatus()
     const interval = setInterval(() => {
       refreshTopology()
+      syncSimulationStatus()
     }, 2000)
     return () => clearInterval(interval)
   }, [])
 
   // Update chart history when metrics change
   useEffect(() => {
-    if (metrics.avg_convergence_ms > 0 || metrics.traffic_loss_pct > 0) {
-      tickCounter.current += 1
-      setChartHistory(prev => {
-        const next = [...prev, {
-          tick: tickCounter.current,
-          convergence: metrics.avg_convergence_ms,
-          loss: metrics.traffic_loss_pct
-        }]
-        return next.slice(-20) // Keep last 20 points
-      })
-    }
+    tickCounter.current += 1
+    setChartHistory(prev => {
+      const next = [...prev, {
+        tick: tickCounter.current,
+        convergence: metrics.avg_convergence_ms,
+        loss: metrics.traffic_loss_pct,
+        activeFailures: metrics.active_failures
+      }]
+      return next.slice(-30)
+    })
   }, [metrics])
 
   // Custom log system
@@ -151,15 +175,18 @@ export default function App() {
         body: JSON.stringify(body)
       })
       const data = await res.json()
-      if (data.status === 'started' || data.status === 'stopping') {
-        setSimActive(!simActive)
+      if (data.status === 'started' || data.status === 'stopping' || data.status === 'updated' || data.status === 'already running' || data.status === 'already stopped') {
+        await syncSimulationStatus()
+        await refreshTopology()
         addLog(
           simActive ? 'warn' : 'success',
           simActive ? 'Poisson simulation loop halted.' : `Poisson simulation launched (speed scaling active).`
         )
+      } else {
+        addLog('warn', `Simulation service replied: ${data.status ?? 'unknown status'}.`)
       }
     } catch (err) {
-      addLog('error', 'Simulation command failed to execute.')
+      addLog('error', `Simulation command failed to execute: ${err instanceof Error ? err.message : err}`)
     }
   }
 
@@ -173,6 +200,7 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ interval_sec: val })
         })
+        await refreshTopology()
         addLog('info', `Simulation Poisson failure interval set to ${val}s.`)
       } catch (err) {}
     }
@@ -196,7 +224,7 @@ export default function App() {
         addLog('success', 'Backbone simulation engine reset to initial clean state.')
       }
     } catch (err) {
-      addLog('error', 'Failed to reset simulation.')
+      addLog('error', `Failed to reset simulation: ${err instanceof Error ? err.message : err}`)
     }
   }
 
@@ -223,7 +251,7 @@ export default function App() {
         addLog('success', `Reroute path computed in ${data.query_time_us}μs: ${pathNames}`)
       }
     } catch (err) {
-      addLog('error', 'Routing request failed.')
+      addLog('error', `Routing request failed: ${err instanceof Error ? err.message : err}`)
     }
   }
 
@@ -259,7 +287,7 @@ export default function App() {
         )
       }
     } catch (err) {
-      addLog('error', 'Failed to toggle fiber link status.')
+      addLog('error', `Failed to toggle fiber link status: ${err instanceof Error ? err.message : err}`)
     }
   }
 
@@ -279,7 +307,7 @@ export default function App() {
       document.body.removeChild(link)
       addLog('success', 'Simulation metrics report CSV downloaded successfully.')
     } catch (err) {
-      addLog('error', 'CSV export failed.')
+      addLog('error', `CSV export failed: ${err instanceof Error ? err.message : err}`)
     }
   }
 
@@ -306,6 +334,8 @@ export default function App() {
   const isConvergenceSloMet = metrics.avg_convergence_ms <= 10.0
   const isLossSloMet = metrics.traffic_loss_pct <= 0.1
   const isOptimalitySloMet = metrics.path_optimality_pct >= 95.0
+  const convergenceDomain = paddedDomain(chartHistory.map(p => p.convergence), 1)
+  const failureDomain: [number, number] = [0, Math.max(1, ...chartHistory.map(p => p.activeFailures)) + 1]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg-space)' }}>
@@ -679,47 +709,57 @@ export default function App() {
               <Activity size={16} /> Real-Time Telemetry Trend
             </h2>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
-              {/* Convergence graph */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-soft)', marginBottom: 4 }}>CONVERGENCE TIME (MS)</span>
-                <div style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', borderRadius: 6, padding: 5 }}>
-                  {chartHistory.length === 0 ? (
-                    <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text-soft)' }}>
-                      Awaiting metrics...
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartHistory}>
-                        <XAxis dataKey="tick" hide />
-                        <YAxis domain={[0, 'dataMax + 1']} fontSize={8} stroke="var(--text-soft)" />
-                        <Tooltip contentStyle={{ background: '#0a0a14', border: '1px solid var(--sky-border)', fontSize: 10 }} />
-                        <Line type="monotone" dataKey="convergence" stroke="var(--sky-blue)" strokeWidth={1.5} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
-
-              {/* Traffic loss graph */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-soft)', marginBottom: 4 }}>ESTIMATED TRAFFIC LOSS (%)</span>
-                <div style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', borderRadius: 6, padding: 5 }}>
-                  {chartHistory.length === 0 ? (
-                    <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text-soft)' }}>
-                      Awaiting metrics...
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartHistory}>
-                        <XAxis dataKey="tick" hide />
-                        <YAxis domain={[0, 'dataMax + 0.05']} fontSize={8} stroke="var(--text-soft)" />
-                        <Tooltip contentStyle={{ background: '#0a0a14', border: '1px solid var(--sky-border)', fontSize: 10 }} />
-                        <Line type="monotone" dataKey="loss" stroke="var(--danger-red)" strokeWidth={1.5} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-soft)', marginBottom: 4 }}>
+                CONVERGENCE (MS) / ACTIVE FAILURES — hover for outage loss %
+              </span>
+              <div style={{ flex: 1, background: 'rgba(0, 0, 0, 0.2)', borderRadius: 6, padding: 5 }}>
+                {chartHistory.length === 0 ? (
+                  <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--text-soft)' }}>
+                    Awaiting metrics...
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartHistory}>
+                      <XAxis dataKey="tick" hide />
+                      <YAxis
+                        yAxisId="convergence"
+                        domain={convergenceDomain}
+                        fontSize={8}
+                        stroke="var(--sky-blue)"
+                        tickFormatter={v => Number(v).toFixed(3)}
+                      />
+                      <YAxis
+                        yAxisId="failures"
+                        orientation="right"
+                        domain={failureDomain}
+                        allowDecimals={false}
+                        fontSize={8}
+                        stroke="var(--heat-warm)"
+                      />
+                      {/* Hidden axis dedicated to the loss line below — giving it its own
+                          axis (instead of sharing "convergence") stops Recharts from
+                          auto-expanding the visible convergence scale to fit loss's much
+                          larger range (allowDataOverflow defaults to false, so a shared
+                          axis silently grows to fit every line assigned to it). */}
+                      <YAxis yAxisId="loss" hide domain={['auto', 'auto']} />
+                      <Tooltip
+                        contentStyle={{ background: '#0a0a14', border: '1px solid var(--sky-border)', fontSize: 10 }}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'activeFailures') return [`${value.toFixed(0)} link(s)`, 'Active failures']
+                          if (name === 'loss') return [`${value.toFixed(3)}%`, 'Outage loss']
+                          return [`${value.toFixed(3)} ms`, 'Convergence']
+                        }}
+                      />
+                      <Line yAxisId="convergence" type="monotone" dataKey="convergence" stroke="var(--sky-blue)" strokeWidth={1.5} dot={false} />
+                      <Line yAxisId="failures" type="stepAfter" dataKey="activeFailures" stroke="var(--heat-warm)" strokeWidth={1.6} dot={false} />
+                      {/* Outage loss is kept in the tooltip only (not drawn) — its values can
+                          be on a very different scale than ms/count, so plotting it as a
+                          third visible line would distort or flatten the other two. */}
+                      <Line yAxisId="loss" type="monotone" dataKey="loss" stroke="transparent" strokeWidth={0} dot={false} activeDot={false} legendType="none" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
           </section>

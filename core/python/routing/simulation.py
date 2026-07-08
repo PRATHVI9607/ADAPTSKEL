@@ -21,39 +21,49 @@ class ISPRoutingSimulation:
     ) -> None:
         self.topology = BackboneTopology()
         self.adaptskel = AdaptSkel(source=0, debug=False)
-        
+
         # Link keys: sorted (min, max) representation
         self.link_keys = [(min(l.u, l.v), max(l.u, l.v)) for l in self.topology.links]
-        
+
         self.failure_sim = LinkFailureSimulator(
             links_keys=self.link_keys,
             mtbf_hours=mtbf_hours,
             mean_recovery_min=mean_recovery_min
         )
-        
+
+        # Cap a single demand's volume at 90% of the smallest link capacity in
+        # the backbone. Without this, the Pareto tail (by design heavy-tailed)
+        # regularly produces demands of 100-180+ Gbps against 40-100 Gbps
+        # links, which reads as chronic ~30-40% traffic loss even with zero
+        # failures -- a demand/capacity calibration mismatch, not a real
+        # outage signal. Capping keeps a healthy network at ~0% loss so the
+        # SLO only reacts to actual failure-driven congestion.
+        min_link_capacity = min((l.capacity_gbps for l in self.topology.links), default=40.0)
         self.traffic_sim = TrafficDemandSimulator(
             cities=self.topology.cities,
-            num_demands=num_demands
+            num_demands=num_demands,
+            max_volume_gbps=min_link_capacity * 0.9
         )
-        
+
         self.route_engine = RouteComputationEngine(
             adaptskel=self.adaptskel,
             topology=self.topology
         )
-        
+
         self.metrics = MetricsTracker()
         self.db_log_callback = db_log_callback
-        
+
         self.current_sim_time = 0.0  # in seconds
         self.active_failures_limit = 5
-        
+        self.current_demands = self.traffic_sim.generate_demands(12)
+
         self._init_engine()
 
     def _init_engine(self) -> None:
         """Register all vertices and edges in ADAPTSKEL."""
         for city in self.topology.cities:
             self.adaptskel.add_vertex(city.id)
-            
+
         for link in self.topology.links:
             self.adaptskel.insert(link.u, link.v, link.latency_ms)
 
@@ -71,10 +81,10 @@ class ISPRoutingSimulation:
         # Record failure in simulator
         recovery_dur = self.failure_sim.record_failure(key, self.current_sim_time)
         self.route_engine.update_link_status(u, v, is_failed=True)
-        
+
         conv_time_ms = (time.perf_counter() - t0) * 1000.0
         self.metrics.measure_convergence_time(conv_time_ms)
-        
+
         # Track accuracy with oracle
         self._verify_against_oracle(u, v)
 
@@ -102,14 +112,14 @@ class ISPRoutingSimulation:
         # Re-insert into ADAPTSKEL
         link = next(l for l in self.topology.links if (min(l.u, l.v), max(l.u, l.v)) == key)
         self.adaptskel.insert(u, v, link.latency_ms)
-        
+
         # Recover in simulator
         self.failure_sim.record_recovery(key)
         self.route_engine.update_link_status(u, v, is_failed=False)
-        
+
         conv_time_ms = (time.perf_counter() - t0) * 1000.0
         self.metrics.measure_convergence_time(conv_time_ms)
-        
+
         # Track accuracy with oracle
         self._verify_against_oracle(u, v)
 
@@ -132,47 +142,28 @@ class ISPRoutingSimulation:
         delay, event_type, link = self.failure_sim.get_next_event_delay(
             self.current_sim_time, self.active_failures_limit
         )
-        
+
         # Advance simulation time
         self.current_sim_time += delay
         u, v = link
-        
+
         event_details = {}
         if event_type == "failure":
             event_details = self.trigger_manual_failure(u, v)
         elif event_type == "recovery":
             event_details = self.trigger_manual_recovery(u, v)
-            
+
         # Simulate traffic demands for current hour
         hour = int((self.current_sim_time // 3600) % 24)
-        demands = self.traffic_sim.generate_demands(hour)
-        
+        self.current_demands = self.traffic_sim.generate_demands(hour)
+
         # Route demands and compute metrics
-        routed_results = []
-        optimal_latencies = []
-        
-        for d in demands:
-            res = self.route_engine.route(d["source"], d["destination"])
-            routed_results.append(res)
-            
-            # Query oracle shortest path for comparison
-            # nx.shortest_path_length on self.adaptskel._G gives the exact shortest path length
-            try:
-                opt_dist = nx.shortest_path_length(self.adaptskel._G, d["source"], d["destination"], weight="weight")
-            except (nx.NetworkXNoPath, nx.NodeNotFound):
-                opt_dist = float('inf')
-            optimal_latencies.append(opt_dist)
-            
-            # Record query accuracy for Availability
-            is_correct = (res["latency_ms"] == float('inf') and opt_dist == float('inf')) or (
-                res["latency_ms"] != float('inf') and opt_dist != float('inf') and abs(res["latency_ms"] - opt_dist) < 1e-4
-            )
-            self.metrics.track_query_accuracy(is_correct)
-            
+        routed_results, optimal_latencies = self._route_current_demands(track_accuracy=True)
+
         # Record traffic loss and path optimality
-        loss_pct = self.metrics.measure_traffic_loss(demands, routed_results)
+        loss_pct = self.metrics.measure_traffic_loss(self.current_demands, routed_results)
         optimality_pct = self.metrics.measure_path_optimality(routed_results, optimal_latencies)
-        
+
         return {
             "sim_time": self.current_sim_time,
             "event": event_type,
@@ -183,6 +174,36 @@ class ISPRoutingSimulation:
             "active_failures": len(self.failure_sim.failed_links)
         }
 
+    def evaluate_current_slos(self) -> Dict[str, float]:
+        """Calculate live SLO values for the current topology without changing history."""
+        routed_results, optimal_latencies = self._route_current_demands(track_accuracy=False)
+        return {
+            "traffic_loss_pct": self.metrics.calculate_traffic_loss(self.current_demands, routed_results),
+            "path_optimality_pct": self.metrics.calculate_path_optimality(routed_results, optimal_latencies),
+        }
+
+    def _route_current_demands(self, track_accuracy: bool = False) -> Tuple[List[Dict[str, Any]], List[float]]:
+        routed_results = []
+        optimal_latencies = []
+
+        for d in self.current_demands:
+            res = self.route_engine.route(d["source"], d["destination"])
+            routed_results.append(res)
+
+            try:
+                opt_dist = nx.shortest_path_length(self.adaptskel._G, d["source"], d["destination"], weight="weight")
+            except (nx.NetworkXNoPath, nx.NodeNotFound):
+                opt_dist = float('inf')
+            optimal_latencies.append(opt_dist)
+
+            if track_accuracy:
+                is_correct = (res["latency_ms"] == float('inf') and opt_dist == float('inf')) or (
+                    res["latency_ms"] != float('inf') and opt_dist != float('inf') and abs(res["latency_ms"] - opt_dist) < 1e-4
+                )
+                self.metrics.track_query_accuracy(is_correct)
+
+        return routed_results, optimal_latencies
+
     def _verify_against_oracle(self, u: int, v: int) -> None:
         """Verify routing accuracy for a test query when topology changes."""
         # Simple test query from node 0 to 33
@@ -192,7 +213,7 @@ class ISPRoutingSimulation:
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             adaptskel_dist = float('inf')
             oracle_dist = float('inf')
-            
+
         is_correct = (adaptskel_dist == float('inf') and oracle_dist == float('inf')) or (
             adaptskel_dist != float('inf') and oracle_dist != float('inf') and abs(adaptskel_dist - oracle_dist) < 1e-4
         )

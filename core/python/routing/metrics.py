@@ -18,27 +18,83 @@ class MetricsTracker:
         self.convergence_times.append(conv_time_ms)
         return conv_time_ms
 
+    @staticmethod
+    def _lost_volume_gbps(demand: Dict[str, Any], result: Dict[str, Any]) -> float:
+        """
+        Volume of a single demand (Gbps) that fails to reach its destination.
+
+        Two failure modes are modeled:
+          1. Full outage — no path exists (or infinite latency): the entire
+             demand is dropped.
+          2. Congestion — a path exists but its bottleneck link capacity
+             (`bottleneck_gbps`, the minimum link capacity along the route)
+             is lower than the demand's volume: only `bottleneck_gbps` worth
+             of the demand gets through and the excess is dropped.
+
+        Previously only mode (1) was modeled, which meant traffic loss read
+        0.000% almost permanently: the backbone topology is deliberately
+        redundant and failures are capped at a handful of concurrent links,
+        so a full source-destination disconnection essentially never
+        happens. Counting congestion loss makes the SLO respond to actual
+        simulated conditions instead of only a partition that never occurs.
+        """
+        volume = demand["volume_gbps"]
+        if not result.get("path") or result.get("latency_ms") == float("inf"):
+            return volume
+        bottleneck = result.get("bottleneck_gbps")
+        if bottleneck is None or bottleneck == float("inf"):
+            return 0.0
+        if bottleneck < volume:
+            return volume - bottleneck
+        return 0.0
+
     def measure_traffic_loss(self, demands: List[Dict[str, Any]], routed_results: List[Dict[str, Any]]) -> float:
         """
         Calculate and record traffic loss % for the current demand set. SLO: <= 0.1%.
-        Loss is calculated as (unrouted volume / total volume) * 100.0.
+        Loss is calculated as (lost volume / total volume) * 100.0, where lost
+        volume covers both full outages and congestion above bottleneck
+        capacity (see `_lost_volume_gbps`).
         """
         total_volume = sum(d["volume_gbps"] for d in demands)
         if total_volume == 0.0:
             self.traffic_loss_events.append(0.0)
             return 0.0
-            
-        unrouted_volume = 0.0
-        for d, r in zip(demands, routed_results):
-            # A flow is unrouted if path is empty or bottleneck capacity is less than demand
-            if not r["path"] or r["bottleneck_gbps"] < d["volume_gbps"]:
-                unrouted_volume += d["volume_gbps"]
-                
+
+        unrouted_volume = sum(
+            self._lost_volume_gbps(d, r) for d, r in zip(demands, routed_results)
+        )
+
         loss_pct = (unrouted_volume / total_volume) * 100.0
         # Round to 3 decimal places
         loss_pct = round(loss_pct, 3)
         self.traffic_loss_events.append(loss_pct)
         return loss_pct
+
+    def calculate_traffic_loss(self, demands: List[Dict[str, Any]], routed_results: List[Dict[str, Any]]) -> float:
+        """Calculate current traffic loss (outage + congestion) without adding a historical sample."""
+        total_volume = sum(d["volume_gbps"] for d in demands)
+        if total_volume == 0.0:
+            return 0.0
+
+        unrouted_volume = sum(
+            self._lost_volume_gbps(d, r) for d, r in zip(demands, routed_results)
+        )
+
+        return round((unrouted_volume / total_volume) * 100.0, 3)
+
+    def calculate_path_optimality(self, routed_results: List[Dict[str, Any]], optimal_latencies: List[float]) -> float:
+        """Calculate current path optimality without adding a historical sample."""
+        if not routed_results:
+            return 100.0
+
+        optimal_count = 0
+        for r, opt_lat in zip(routed_results, optimal_latencies):
+            if (r["latency_ms"] == float('inf') and opt_lat == float('inf')) or (
+                r["latency_ms"] != float('inf') and opt_lat != float('inf') and abs(r["latency_ms"] - opt_lat) < 1e-4
+            ):
+                optimal_count += 1
+
+        return round((optimal_count / len(routed_results)) * 100.0, 1)
 
     def measure_path_optimality(self, routed_results: List[Dict[str, Any]], optimal_latencies: List[float]) -> float:
         """

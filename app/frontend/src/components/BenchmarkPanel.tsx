@@ -10,13 +10,13 @@ import { BENCHMARK_SCALING_DATA } from '../engine/GraphState'
 interface Props { compact?: boolean }
 
 const TOOLTIP_STYLE = {
-  backgroundColor: '#ffffff',
-  border: '1px solid rgba(2,132,199,0.2)',
+  backgroundColor: 'rgba(10, 10, 16, 0.94)',
+  border: '1px solid rgba(0, 212, 255, 0.18)',
   borderRadius: 8,
   fontFamily: 'JetBrains Mono',
   fontSize: '0.75rem',
-  color: '#0f2240',
-  boxShadow: '0 4px 12px rgba(0,80,160,0.1)',
+  color: 'var(--text-dark)',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
 }
 
 export function BenchmarkPanel({ compact = false }: Props) {
@@ -126,7 +126,7 @@ function FullBenchmarkPanel() {
   const finalSpeedup = (lastRow.dijkstraUs / lastRow.adaptskekUs).toFixed(0)
 
   return (
-    <div style={{ display: 'flex', gap: 14, padding: 14, height: '100%', overflow: 'auto' }}>
+    <div style={{ display: 'flex', gap: 14, padding: 14, height: '100%', overflow: 'auto', color: 'var(--text-dark)' }}>
       {/* Config panel */}
       <div className="glass-panel" style={{ padding: 16, minWidth: 230, flexShrink: 0 }}>
         <div style={{

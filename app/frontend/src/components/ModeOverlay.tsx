@@ -42,7 +42,7 @@ export function ModeOverlay() {
 
   if (mode === 'benchmark') {
     return (
-      <motion.div {...fadeIn} style={{ position: 'absolute', inset: 0, background: 'rgba(240,247,255,0.94)', zIndex: 20, overflowY: 'auto', pointerEvents: 'all' }}>
+      <motion.div {...fadeIn} style={{ position: 'absolute', inset: 0, background: 'rgba(3, 3, 7, 0.92)', backdropFilter: 'blur(12px)', zIndex: 20, overflowY: 'auto', pointerEvents: 'all' }}>
         <BenchmarkPanel compact={false} />
       </motion.div>
     )

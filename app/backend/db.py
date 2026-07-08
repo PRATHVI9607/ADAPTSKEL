@@ -7,8 +7,19 @@ from __future__ import annotations
 
 import json
 import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    _HAS_PSYCOPG2 = True
+except ImportError as e:
+    # psycopg2 isn't installed in this environment (e.g. local dev venv without
+    # the routing-app's requirements, or a minimal test container). Degrade to
+    # transient (no-DB) mode instead of crashing every module that imports us —
+    # this is what "fail-safe" in the module docstring is actually supposed to mean.
+    psycopg2 = None  # type: ignore[assignment]
+    _HAS_PSYCOPG2 = False
+    print(f"[DB WARN] psycopg2 not installed, running in transient mode. Error: {e}")
 
 DB_URL = os.environ.get(
     "DATABASE_URL",
@@ -17,6 +28,8 @@ DB_URL = os.environ.get(
 
 def get_connection():
     """Establish and return a connection to PostgreSQL, or None if unavailable."""
+    if not _HAS_PSYCOPG2:
+        return None
     try:
         conn = psycopg2.connect(DB_URL, connect_timeout=3)
         return conn

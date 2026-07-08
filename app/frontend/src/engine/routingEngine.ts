@@ -1,6 +1,6 @@
 import { RoutingNode, RoutingEdge, RoutingMetrics } from './GraphState'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001'
 
 export interface RoutingTopologyResponse {
   nodes: RoutingNode[]
