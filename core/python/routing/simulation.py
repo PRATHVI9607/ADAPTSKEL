@@ -8,6 +8,7 @@ from routing.failures import LinkFailureSimulator
 from routing.traffic import TrafficDemandSimulator
 from routing.routing import RouteComputationEngine
 from routing.metrics import MetricsTracker
+from routing.congestion import CongestionAwareRouter
 
 class ISPRoutingSimulation:
     """Orchestrates the entire ISP backbone routing simulation including traffic, failures, and metrics."""
@@ -52,6 +53,18 @@ class ISPRoutingSimulation:
 
         self.metrics = MetricsTracker()
         self.db_log_callback = db_log_callback
+
+        # Congestion-aware router: steers traffic off saturated links using
+        # load-adaptive weights + ADAPTSKEL heat. Compared against the plain
+        # latency-only router to quantify avoided congestion loss.
+        self.congestion_router = CongestionAwareRouter(self.topology)
+        self.latest_congestion: Dict[str, Any] = {
+            "baseline_loss_pct": 0.0,
+            "congestion_aware_loss_pct": 0.0,
+            "improvement_pct": 0.0,
+            "baseline_max_utilisation": 0.0,
+            "congestion_aware_max_utilisation": 0.0,
+        }
 
         self.current_sim_time = 0.0  # in seconds
         self.active_failures_limit = 5
@@ -164,6 +177,9 @@ class ISPRoutingSimulation:
         loss_pct = self.metrics.measure_traffic_loss(self.current_demands, routed_results)
         optimality_pct = self.metrics.measure_path_optimality(routed_results, optimal_latencies)
 
+        # Congestion-aware vs latency-only loss comparison for this batch
+        cong = self.evaluate_congestion()
+
         return {
             "sim_time": self.current_sim_time,
             "event": event_type,
@@ -171,15 +187,35 @@ class ISPRoutingSimulation:
             "convergence_time_ms": event_details.get("convergence_time_ms", 0.0),
             "traffic_loss_pct": loss_pct,
             "path_optimality_pct": optimality_pct,
-            "active_failures": len(self.failure_sim.failed_links)
+            "active_failures": len(self.failure_sim.failed_links),
+            "baseline_loss_pct": cong["baseline_loss_pct"],
+            "congestion_aware_loss_pct": cong["congestion_aware_loss_pct"],
+            "congestion_improvement_pct": cong["improvement_pct"],
         }
+
+    def evaluate_congestion(self) -> Dict[str, Any]:
+        """
+        Compare latency-only routing vs congestion-aware routing on the current
+        demand batch and current failure set. Uses live ADAPTSKEL heat scores
+        as the popularity prior. Cached in self.latest_congestion.
+        """
+        failed = set(self.failure_sim.failed_links.keys())
+        heat = self.adaptskel.get_heat_scores()
+        self.latest_congestion = self.congestion_router.compare(
+            self.current_demands, failed, heat
+        )
+        return self.latest_congestion
 
     def evaluate_current_slos(self) -> Dict[str, float]:
         """Calculate live SLO values for the current topology without changing history."""
         routed_results, optimal_latencies = self._route_current_demands(track_accuracy=False)
+        cong = self.evaluate_congestion()
         return {
             "traffic_loss_pct": self.metrics.calculate_traffic_loss(self.current_demands, routed_results),
             "path_optimality_pct": self.metrics.calculate_path_optimality(routed_results, optimal_latencies),
+            "baseline_loss_pct": cong["baseline_loss_pct"],
+            "congestion_aware_loss_pct": cong["congestion_aware_loss_pct"],
+            "congestion_improvement_pct": cong["improvement_pct"],
         }
 
     def _route_current_demands(self, track_accuracy: bool = False) -> Tuple[List[Dict[str, Any]], List[float]]:

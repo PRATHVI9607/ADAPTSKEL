@@ -36,7 +36,11 @@ class RoutingService:
             "avg_convergence_ms": 0.0,
             "traffic_loss_pct": 0.0,
             "path_optimality_pct": 100.0,
-            "active_failures": 0
+            "active_failures": 0,
+            # Congestion-aware routing telemetry
+            "baseline_loss_pct": 0.0,
+            "congestion_aware_loss_pct": 0.0,
+            "congestion_improvement_pct": 0.0,
         }
 
     def get_topology(self) -> dict:
@@ -78,7 +82,10 @@ class RoutingService:
                 "avg_convergence_ms": rep["avg_convergence_ms"],
                 "traffic_loss_pct": live_slos["traffic_loss_pct"],
                 "path_optimality_pct": live_slos["path_optimality_pct"],
-                "active_failures": len(self.sim.failure_sim.failed_links)
+                "active_failures": len(self.sim.failure_sim.failed_links),
+                "baseline_loss_pct": live_slos["baseline_loss_pct"],
+                "congestion_aware_loss_pct": live_slos["congestion_aware_loss_pct"],
+                "congestion_improvement_pct": live_slos["congestion_improvement_pct"],
             })
 
             return {

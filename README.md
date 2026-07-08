@@ -8,16 +8,20 @@
 
 ## What Is ADAPTSKEL?
 
-ADAPTSKEL is a new data structure for the **fully dynamic SSSP problem**: maintaining exact shortest-path distances in a graph that continuously gains and loses edges, while answering distance queries in polylogarithmic time.
+ADAPTSKEL is a data structure for the **dynamic SSSP problem**: maintaining exact shortest-path distances from a fixed source in a graph that continuously gains, loses, and reweights edges, while answering source-rooted distance queries in O(1).
 
-### Performance vs Existing Algorithms
+### What ADAPTSKEL actually delivers (honest claims)
 
-| Algorithm | Insert | Delete | Query | Exact? | Fully Dynamic? |
-|---|---|---|---|---|---|
-| Dijkstra (rerun) | O(E log V) | O(E log V) | O(1) | ✓ | ✓ |
-| Link-Cut Tree | O(log n) | O(log n) | O(log n) | ✗ (connectivity) | ✓ |
-| Bernstein-Stein 2016 | — | O(m log n/ε) | O(1) | ✗ (approx) | ✗ |
-| **ADAPTSKEL (ours)** | **O(log² n)** | **O(log² n)** | **O(log n)** | **✓** | **✓** |
+| Operation | Cost | Notes |
+|---|---|---|
+| `query(source, t)` | **O(1)** | direct read of an incrementally-maintained label — no oracle, no recompute |
+| `query(s, t)`, s ≠ source | O(E log V) | one Dijkstra from s; the structure only accelerates the fixed source |
+| `insert` / edge-decrease | output-sensitive | Dijkstra relaxation touching only vertices whose label improves |
+| `delete` / edge-increase | output-sensitive | Ramalingam–Reps: only the *affected* subtree is recomputed |
+
+Every update is **exact** (validated against a NetworkX oracle every mutation, in debug mode and in `tests/test_correctness.py`). Incremental updates beat a full Dijkstra rerun when changes are **local** (the common case) and degrade to a single Dijkstra in the worst case.
+
+> **Intellectual-honesty note (please read before presenting):** exact fully-dynamic SSSP with polylog **worst-case** update *and* query is not known to exist and is conditionally impossible under the OMv conjecture. ADAPTSKEL does **not** claim that. Its contribution is the O(1) source-rooted query backed by output-sensitive incremental maintenance, plus the heat-driven F₁/F₂ skeleton used for visualisation and congestion signalling. NetworkX appears only as a test oracle, never on the answer path.
 
 ### Three Novel Contributions
 
@@ -60,6 +64,8 @@ An interactive 3D web application displaying ADAPTSKEL vs Dijkstra side-by-side 
 
 ### 2. Network Routing Application (ISP Backbone Simulation)
 A real-time simulation of an ISP backbone routing system using a 34-city Indian topology (Tier-1 and Tier-2 hubs). Features Poisson-distributed link failures (realistic MTBF), Pareto-distributed traffic demands (80/20 rule), and live Leaflet-based routing pathfinders with latency calculations (1 ms per 100 km) and SLO validation.
+
+**Congestion control (the "many flows down the same road" problem).** The plain router sends every demand down the *latency*-shortest path, so heavily-used hub links can overload even with no failures. The `CongestionAwareRouter` (`core/python/routing/congestion.py`) routes with **load-adaptive edge weights**: as a link approaches capacity its effective weight rises (a knee-hinge penalty), steering later flows onto alternate paths — a stream of dynamic edge-reweight events, exactly what ADAPTSKEL absorbs. ADAPTSKEL **heat** scores act as a "this link is popular" prior so the busiest-and-hottest links shed load first. The dashboard shows **latency-only vs congestion-aware** traffic loss side by side; below capacity the two are identical (congestion-aware is never worse), and under failure-driven overload it cuts loss substantially (e.g. 4 hub cuts: **71% → 27%** loss).
 
 ---
 

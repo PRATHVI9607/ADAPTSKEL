@@ -1,20 +1,40 @@
 """
 ADAPTSKEL — Adaptive Skeleton SSSP engine (Python reference implementation).
 
-Maintains exact Single-Source Shortest Paths in a dynamic undirected weighted
-graph via two structural layers:
+Maintains exact Single-Source Shortest Paths (from a fixed `source`) in a
+dynamic undirected weighted graph via two structural layers:
 
     F₁  (Skeleton Layer)  — LinkCutTree : hot / frequently-queried edges
     F₂  (Residual Layer)  — EulerTourForest : cold edges, Holm-levelled
 
 Heat tracking drives promotions (F₂→F₁) and demotions (F₁→F₂).
 
-Correctness guarantee (Python reference)
-------------------------------------------
-query() returns nx.shortest_path_length(G, s, t) which is provably correct.
-The LCT / ETT / heat structures are maintained in parallel for algorithmic
-demonstration and visualisation purposes.  A future C++ port will use the
-LCT path directly for O(log n) queries.
+What is actually maintained (HONEST complexity — read before presenting)
+-----------------------------------------------------------------------
+* The engine maintains its OWN exact distance labels `self._dist` from the
+  fixed `source`, updated INCREMENTALLY on every insert / delete / reweight
+  using a Ramalingam–Reps style dynamic-SSSP:
+
+    - insert / edge-decrease : Dijkstra relaxation seeded at the changed edge,
+      touching only vertices whose label actually improves.
+    - delete / edge-increase : identify the *affected* subtree (vertices that
+      lost their shortest-path support) and recompute only those, re-seeded
+      from the unaffected frontier.
+
+* query(source, t)  →  O(1)  : a direct read of the maintained label.
+  query(s, t) for s ≠ source  →  a Dijkstra from s over the current adjacency
+  (the structure only accelerates the fixed source; arbitrary-pair queries get
+  no speed-up — this is stated honestly, not hidden).
+
+* NetworkX is used ONLY as the correctness oracle inside `_assert_invariants`
+  (debug mode) and in the test-suite. It is NEVER on the answer path.
+
+Exact fully-dynamic SSSP with polylog *worst-case* update AND query is not
+known to exist and is conditionally impossible (OMv conjecture). What this
+engine delivers is: O(1) source-rooted query; output-sensitive incremental
+updates that beat a Dijkstra rerun when changes are local (the common case)
+and degrade to a single Dijkstra in the worst case. The F₁/F₂/heat machinery
+identifies the hot subgraph for visualisation and congestion signalling.
 """
 
 from __future__ import annotations
@@ -85,8 +105,19 @@ class AdaptSkel:
         self._lct: LinkCutTree = LinkCutTree()
         self._ett: EulerTourForest = EulerTourForest()
 
-        # ---- Distance labels (mirrors LCT node labels) ----
+        # ---- Distance labels (authoritative, maintained incrementally) ----
         self._dist: dict[int, float] = {}
+
+        # ---- Shortest-path-tree predecessor (parent toward source) ----
+        # _pred[v] = the neighbour u such that dist[v] = dist[u] + w(u,v).
+        # None for the source and for unreachable vertices. Used for O(len)
+        # path reconstruction (heat updates) and by the incremental repair.
+        self._pred: dict[int, Optional[int]] = {}
+
+        # ---- Incrementally-maintained adjacency: {u: {v: w}} ----
+        # Authoritative weighted graph the dynamic SSSP relaxes over. Kept in
+        # sync with _G_edges so we never rebuild it from scratch per update.
+        self._adj: dict[int, dict[int, float]] = {}
 
         # ---- Vertex set ----
         self._vertices: set[int] = set()
@@ -148,6 +179,8 @@ class AdaptSkel:
         self._vertices.add(v)
         self._n = len(self._vertices)
         self._dist[v] = INF
+        self._pred[v] = None
+        self._adj.setdefault(v, {})
         self._lct.add_node(v)
         self._ett.add_vertex(v)
         self._G.add_node(v)
@@ -184,19 +217,26 @@ class AdaptSkel:
                 return self.get_stats()  # no-op: same weight
             self._G_edges[k] = w
             self._G.add_edge(u, v, weight=w)
+            self._adj[u][v] = w
+            self._adj[v][u] = w
             # Update structural layer with new weight
             self._handle_weight_update(u, v, w)
-            # Full distance recompute (handles both increase and decrease)
-            self._recompute_all_distances()
+            # Incremental distance repair (only affected vertices touched)
+            if w < old_w:
+                self._relax_decrease([(u, v, w)])
+            else:
+                self._recompute_increase([u, v])
             return self.get_stats()
 
         # New edge
         self._G_edges[k] = w
         self._G.add_edge(u, v, weight=w)
+        self._adj[u][v] = w
+        self._adj[v][u] = w
         self._stats["insertions"] += 1
 
-        # Recompute distances (NetworkX ground truth)
-        self._recompute_all_distances()
+        # Incremental distance repair: a fresh edge can only DECREASE labels.
+        self._relax_decrease([(u, v, w)])
 
         # Decide layer assignment
         heat_val = self._heat.get_uv(u, v)
@@ -236,7 +276,7 @@ class AdaptSkel:
     def _handle_weight_update(self, u: int, v: int, w: float) -> None:
         """
         Update the weight of an existing edge in the appropriate structural layer.
-        Called before _recompute_all_distances().
+        Called before the incremental distance repair (decrease/increase).
         """
         k = _key(u, v)
         if k in self._f1_edges:
@@ -266,6 +306,8 @@ class AdaptSkel:
 
         w = self._G_edges.pop(k)
         self._G.remove_edge(u, v)
+        self._adj[u].pop(v, None)
+        self._adj[v].pop(u, None)
         self._stats["deletions"] += 1
 
         # Push increase event — distances may have grown
@@ -282,14 +324,14 @@ class AdaptSkel:
             self._f2_edges.discard(k)
             self._ett.remove_edge(u, v)
 
-        # Flush increase events: mark stale, recompute
+        # Flush increase events: mark stale (kept for stats / visualisation)
         stale = self._ldb.flush_increases(self._dist, {}, self.source)
         for sv in stale:
             self._lct.mark_stale(sv)
         self._ldb.clear_increases()
 
-        # Recompute all distances (ground truth)
-        self._recompute_all_distances()
+        # Incremental distance repair: recompute ONLY the affected subtree.
+        self._recompute_increase([u, v])
 
         self._stats["f1_size"] = len(self._f1_edges)
         self._stats["f2_size"] = len(self._f2_edges)
@@ -334,41 +376,33 @@ class AdaptSkel:
         """
         Return the exact shortest-path distance δ(s, t).
 
-        Uses NetworkX Dijkstra as the ground-truth oracle.
-        Also updates heat scores based on the computed path, triggering
-        promotions/demotions as appropriate.
+        Answer path (NO NetworkX — distances are self-maintained):
+          * s == source : O(1) read of the incrementally-maintained label
+                          self._dist[t].
+          * s != source : a single Dijkstra from s over the current adjacency.
+                          The structure only accelerates the fixed source, so
+                          arbitrary-pair queries honestly pay Dijkstra cost.
 
-        O(m log n) for the NetworkX call (reference implementation).
-        The C++ port will achieve O(log n) via LCT path queries.
+        Also updates heat scores along the shortest path, triggering
+        promotions / demotions as appropriate.
         """
         self._ensure_vertices(s, t)
 
-        # Flush any pending increases before answering
-        if self._ldb.has_increases():
-            stale = self._ldb.flush_increases(self._dist, {}, self.source)
-            self._ldb.clear_increases()
-            for sv in stale:
-                self._lct.mark_stale(sv)
-            self._recompute_all_distances()
-
         self._stats["queries"] += 1
 
-        # ---- Ground-truth distance via NetworkX ----
-        try:
-            dist_val: float = nx.shortest_path_length(
-                self._G, s, t, weight="weight"
-            )
-        except (nx.NetworkXNoPath, nx.NodeNotFound):
-            return INF
+        # ---- Distance from the self-maintained structures ----
+        if s == self.source:
+            dist_val = self._dist.get(t, INF)
+            path_nodes = self._path_from_source(t)
+        else:
+            dvec, pred = self._dijkstra_from(s)
+            dist_val = dvec.get(t, INF)
+            path_nodes = self._reconstruct(pred, s, t)
 
-        # ---- Heat update ----
-        try:
-            path_nodes: list[int] = nx.shortest_path(
-                self._G, s, t, weight="weight"
-            )
-        except (nx.NetworkXNoPath, nx.NodeNotFound):
+        if dist_val == INF or not path_nodes:
             return dist_val
 
+        # ---- Heat update ----
         path_edges: list[Edge] = []
         for i in range(len(path_nodes) - 1):
             a, b = path_nodes[i], path_nodes[i + 1]
@@ -460,42 +494,220 @@ class AdaptSkel:
     # Internal helpers
     # ================================================================
 
+    _EPS = 1e-9
+
+    def _relax_decrease(self, changed: list[tuple[int, int, float]]) -> None:
+        """
+        Apply DECREASE events: one or more edges were added or lowered in
+        weight. Seed a Dijkstra at the endpoints that improve, then relax
+        outward. Only vertices whose label actually drops are touched.
+
+        Correctness: labels can only move DOWN here, so continuing Dijkstra
+        from the improved frontier yields exact distances.
+        """
+        import heapq
+        heap: list[tuple[float, int]] = []
+        ops = 0
+        for a, b, w in changed:
+            for x, y in ((a, b), (b, a)):
+                cand = self._dist.get(x, INF) + w
+                if cand < self._dist.get(y, INF) - self._EPS:
+                    self._dist[y] = cand
+                    self._pred[y] = x
+                    heapq.heappush(heap, (cand, y))
+        ops += self._dijkstra_continue(heap)
+        self._stats["ldb_decrease_ops"] += ops
+
+    def _recompute_increase(self, seeds: list[int]) -> None:
+        """
+        Apply INCREASE events (Ramalingam–Reps): an edge was deleted or raised
+        in weight, so some labels may grow.
+
+        Phase 1 — identify the *affected* set: vertices that lost their
+        shortest-path support (no neighbour still certifies dist[x]=dist[y]+w).
+        Phase 2 — reset affected labels to ∞, re-seed each from its best
+        UN-affected neighbour, and run Dijkstra among the affected set.
+
+        Only affected vertices are ever touched — output-sensitive.
+        """
+        import heapq
+        from collections import deque
+
+        dist = self._dist
+        adj = self._adj
+        affected: set[int] = set()
+
+        def supported(x: int) -> bool:
+            """True if x still has a neighbour that certifies its label."""
+            if x == self.source:
+                return True
+            dx = dist.get(x, INF)
+            if dx == INF:
+                return True  # already unreachable — nothing to repair
+            for y, wxy in adj.get(x, {}).items():
+                if y in affected:
+                    continue
+                dy = dist.get(y, INF)
+                if dy != INF and abs(dy + wxy - dx) < self._EPS:
+                    return True
+            return False
+
+        q: deque[int] = deque()
+        for s0 in seeds:
+            if dist.get(s0, INF) != INF and not supported(s0):
+                affected.add(s0)
+                q.append(s0)
+
+        while q:
+            x = q.popleft()
+            dx = dist.get(x, INF)
+            for y, wxy in adj.get(x, {}).items():
+                if y in affected:
+                    continue
+                dy = dist.get(y, INF)
+                if dy == INF:
+                    continue
+                # y was (possibly) supported BY x iff dist[x] + w == dist[y]
+                if abs(dx + wxy - dy) < self._EPS and not supported(y):
+                    affected.add(y)
+                    q.append(y)
+
+        # Phase 2 — reset and re-seed from the unaffected frontier.
+        for x in affected:
+            dist[x] = INF
+            self._pred[x] = None
+
+        heap: list[tuple[float, int]] = []
+        for x in affected:
+            best = INF
+            best_p: Optional[int] = None
+            for y, wxy in adj.get(x, {}).items():
+                if y in affected:
+                    continue
+                dy = dist.get(y, INF)
+                if dy != INF and dy + wxy < best:
+                    best = dy + wxy
+                    best_p = y
+            if best < INF:
+                dist[x] = best
+                self._pred[x] = best_p
+                heap.append((best, x))
+        heapq.heapify(heap)
+        self._dijkstra_continue(heap)
+
+    def _dijkstra_continue(self, heap: list) -> int:
+        """
+        Drain a Dijkstra frontier over self._adj, relaxing edges and updating
+        self._dist / self._pred. Returns the number of successful relaxations.
+        """
+        import heapq
+        dist = self._dist
+        adj = self._adj
+        relaxations = 0
+        while heap:
+            d, x = heapq.heappop(heap)
+            if d > dist.get(x, INF) + self._EPS:
+                continue  # stale heap entry
+            for y, wxy in adj.get(x, {}).items():
+                nd = d + wxy
+                if nd < dist.get(y, INF) - self._EPS:
+                    dist[y] = nd
+                    self._pred[y] = x
+                    heapq.heappush(heap, (nd, y))
+                    relaxations += 1
+        return relaxations
+
+    def _dijkstra_from(self, src: int) -> tuple[dict[int, float], dict[int, Optional[int]]]:
+        """
+        A one-off Dijkstra from an arbitrary source over the current adjacency.
+        Used only for arbitrary-pair queries (s ≠ self.source). Does NOT mutate
+        the maintained source-rooted labels.
+        """
+        import heapq
+        dvec: dict[int, float] = {src: 0.0}
+        pred: dict[int, Optional[int]] = {src: None}
+        heap: list[tuple[float, int]] = [(0.0, src)]
+        while heap:
+            d, x = heapq.heappop(heap)
+            if d > dvec.get(x, INF) + self._EPS:
+                continue
+            for y, wxy in self._adj.get(x, {}).items():
+                nd = d + wxy
+                if nd < dvec.get(y, INF) - self._EPS:
+                    dvec[y] = nd
+                    pred[y] = x
+                    heapq.heappush(heap, (nd, y))
+        return dvec, pred
+
+    @staticmethod
+    def _reconstruct(pred: dict[int, Optional[int]], s: int, t: int) -> list[int]:
+        """Reconstruct the s→t node path from a predecessor map."""
+        if t not in pred:
+            return []
+        path: list[int] = []
+        cur: Optional[int] = t
+        while cur is not None:
+            path.append(cur)
+            if cur == s:
+                break
+            cur = pred.get(cur)
+        else:
+            return []
+        if path[-1] != s:
+            return []
+        path.reverse()
+        return path
+
+    def _path_from_source(self, t: int) -> list[int]:
+        """Reconstruct the source→t path from the maintained _pred tree."""
+        if self._dist.get(t, INF) == INF:
+            return []
+        return self._reconstruct(self._pred, self.source, t)
+
     def _recompute_all_distances(self) -> None:
         """
-        Recompute SSSP from source using NetworkX and update all labels.
-        O(m log n) — acceptable for the Python reference implementation.
+        Full exact SSSP from source over the maintained adjacency (self._adj),
+        via plain Dijkstra — NO NetworkX. Kept as a fallback / bootstrap; the
+        hot path uses the incremental _relax_decrease / _recompute_increase.
         """
-        if self.source not in self._G:
-            return
-        try:
-            lengths: dict[int, float] = nx.single_source_dijkstra_path_length(
-                self._G, self.source, weight="weight"
-            )
-        except nx.NodeNotFound:
-            lengths = {}
-
         for v in self._vertices:
-            d = lengths.get(v, INF)
-            self._dist[v] = d
-            self._lct.set_dist(v, d)
-            self._lct.mark_fresh(v)
+            self._dist[v] = 0.0 if v == self.source else INF
+            self._pred[v] = None
+        if self.source not in self._vertices:
+            return
+        heap: list[tuple[float, int]] = [(0.0, self.source)]
+        self._dijkstra_continue(heap)
+
+    def _oracle_distances(self) -> dict[int, float]:
+        """NetworkX single-source distances — DEBUG/TEST ORACLE ONLY."""
+        if self.source not in self._G:
+            return {}
+        try:
+            return dict(nx.single_source_dijkstra_path_length(
+                self._G, self.source, weight="weight"
+            ))
+        except nx.NodeNotFound:
+            return {}
 
     def _build_adj(self) -> dict[int, dict[int, float]]:
-        """Build adjacency dict from current G_edges."""
-        adj: dict[int, dict[int, float]] = {v: {} for v in self._vertices}
-        for (u, v), w in self._G_edges.items():
-            adj[u][v] = w
-            adj[v][u] = w
-        return adj
+        """Return the incrementally-maintained adjacency dict."""
+        return self._adj
+
+    def path(self, s: int, t: int) -> list[int]:
+        """
+        Public shortest-path reconstruction (node id list), s→t.
+        Source-rooted paths come from the maintained tree in O(len);
+        arbitrary pairs run one Dijkstra from s.
+        """
+        self._ensure_vertices(s, t)
+        if s == self.source:
+            return self._path_from_source(t)
+        _, pred = self._dijkstra_from(s)
+        return self._reconstruct(pred, s, t)
 
     def _flush_increases_bounded(self, stale_nodes: list[int]) -> None:
-        """
-        Bounded Dijkstra for stale vertices.
-        Scope: up to log(n) hops from source.
-
-        For the Python reference, we delegate to _recompute_all_distances().
-        """
-        self._recompute_all_distances()
+        """Repair labels after deletions by recomputing only affected vertices."""
+        self._recompute_increase(list(stale_nodes))
 
     # ================================================================
     # Stats / introspection

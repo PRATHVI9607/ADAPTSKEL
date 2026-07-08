@@ -31,6 +31,9 @@ interface TelemetryMetrics {
   traffic_loss_pct: number
   path_optimality_pct: number
   active_failures: number
+  baseline_loss_pct: number
+  congestion_aware_loss_pct: number
+  congestion_improvement_pct: number
 }
 
 interface LogEvent {
@@ -82,7 +85,10 @@ export default function App() {
     avg_convergence_ms: 0.0,
     traffic_loss_pct: 0.0,
     path_optimality_pct: 100.0,
-    active_failures: 0
+    active_failures: 0,
+    baseline_loss_pct: 0.0,
+    congestion_aware_loss_pct: 0.0,
+    congestion_improvement_pct: 0.0
   })
 
   const [simActive, setSimActive] = useState(false)
@@ -698,6 +704,36 @@ export default function App() {
                   <span style={{ fontSize: '0.55rem', padding: '1px 5px', borderRadius: 4, background: isOptimalitySloMet ? 'rgba(0,230,118,0.15)' : 'rgba(255,23,68,0.15)', color: isOptimalitySloMet ? 'var(--eco-green)' : 'var(--danger-red)', border: '1px solid' }}>
                     {isOptimalitySloMet ? 'MET' : 'VIOLATED'}
                   </span>
+                </div>
+              </div>
+
+              {/* Congestion-aware routing: baseline vs load-adaptive */}
+              <div style={{ background: 'rgba(0, 229, 255, 0.06)', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--sky-border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div>
+                    <h3 style={{ fontSize: '0.75rem', fontWeight: 600 }}>Congestion Control</h3>
+                    <p style={{ fontSize: '0.6rem', color: 'var(--text-soft)' }}>Load-adaptive vs latency-only routing</p>
+                  </div>
+                  <div style={{
+                    fontFamily: 'JetBrains Mono', fontSize: '0.9rem', fontWeight: 700,
+                    color: metrics.congestion_improvement_pct > 0 ? 'var(--eco-green)' : 'var(--text-soft)'
+                  }}>
+                    {metrics.congestion_improvement_pct > 0 ? '−' : ''}{metrics.congestion_improvement_pct.toFixed(2)} pp
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1, textAlign: 'center', background: 'rgba(255,23,68,0.08)', borderRadius: 4, padding: '5px 4px' }}>
+                    <div style={{ fontSize: '0.55rem', color: 'var(--text-soft)' }}>LATENCY-ONLY</div>
+                    <div style={{ fontFamily: 'JetBrains Mono', fontSize: '0.8rem', color: 'var(--danger-red)', fontWeight: 600 }}>
+                      {metrics.baseline_loss_pct.toFixed(2)}%
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, textAlign: 'center', background: 'rgba(0,230,118,0.08)', borderRadius: 4, padding: '5px 4px' }}>
+                    <div style={{ fontSize: '0.55rem', color: 'var(--text-soft)' }}>CONGESTION-AWARE</div>
+                    <div style={{ fontFamily: 'JetBrains Mono', fontSize: '0.8rem', color: 'var(--eco-green)', fontWeight: 600 }}>
+                      {metrics.congestion_aware_loss_pct.toFixed(2)}%
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
