@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ADAPTSKEL Pokédex — The Complete Field Guide</title>
+<style>
+  :root{
+    --red:#ee1515; --red-dark:#a80a0a; --gold:#e3a21a; --yellow:#ffcb05;
+    --blue:#2a75bb; --blue-deep:#274b7d;
+    --ink:#17171d; --ink-soft:#3c3c48; --mute:#6a6a78;
+    --paper:#f5f3ef; --card:#ffffff; --line:#e5e1d8;
+    --steel:#b7b7ce; --psychic:#f95587; --fire:#ee8130; --grass:#5fbf59;
+    --water:#6390f0; --electric:#f2c40c; --normal:#9a9a72; --dark:#5a5150;
+    --radius:18px; --maxw:1180px;
+    --shadow:0 18px 40px -22px rgba(20,20,40,.35);
+    --shadow-sm:0 6px 18px -12px rgba(20,20,40,.4);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#f0eee9; --ink-soft:#cfccc4; --mute:#9a978e;
+      --paper:#121218; --card:#1c1c24; --line:#2c2c38;
+      --shadow:0 20px 44px -20px rgba(0,0,0,.7);
+      --shadow-sm:0 8px 20px -12px rgba(0,0,0,.7);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth; scroll-padding-top:86px}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Trebuchet MS","Segoe UI",system-ui,-apple-system,sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  code,kbd,.mono,.num{font-family:ui-monospace,"SFMono-Regular","JetBrains Mono",Consolas,monospace}
+  a{color:var(--blue)}
+
+  /* ---------- top progress + brand bar ---------- */
+  .progress{position:fixed; top:0; left:0; height:4px; width:0%;
+    background:linear-gradient(90deg,var(--red),var(--gold),var(--yellow)); z-index:120; transition:width .1s linear}
+  header.top{position:fixed; top:0; left:0; right:0; height:64px; z-index:110;
+    display:flex; align-items:center; gap:14px; padding:0 20px;
+    background:color-mix(in srgb, var(--card) 86%, transparent); backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line)}
+  .brand{display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:.02em}
+  .brand b{color:var(--red)}
+  .brand small{display:block; font-weight:600; font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; color:var(--mute)}
+  .pokeball{width:34px; height:34px; flex:0 0 auto; filter:drop-shadow(0 3px 5px rgba(0,0,0,.25))}
+  .spin{animation:spin 9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .dex-counter{margin-left:auto; display:flex; align-items:center; gap:8px; font-size:.78rem; color:var(--mute)}
+  .dex-counter b{color:var(--ink); font-family:ui-monospace,monospace}
+  .menu-btn{display:none; margin-left:auto; background:var(--red); color:#fff; border:none; border-radius:10px;
+    width:40px; height:38px; font-size:1.2rem; cursor:pointer}
+
+  /* ---------- layout ---------- */
+  .shell{max-width:var(--maxw); margin:0 auto; padding:84px 20px 80px;
+    display:grid; grid-template-columns:260px 1fr; gap:34px; align-items:start}
+  nav.dex{position:sticky; top:84px; align-self:start; max-height:calc(100dvh - 104px); overflow:auto;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow-sm)}
+  nav.dex h4{margin:6px 8px 10px; font-size:.66rem; letter-spacing:.16em; text-transform:uppercase; color:var(--mute)}
+  nav.dex a{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:11px; text-decoration:none;
+    color:var(--ink-soft); font-weight:600; font-size:.86rem; transition:background .15s, color .15s}
+  nav.dex a .no{font-family:ui-monospace,monospace; font-size:.68rem; color:var(--mute); min-width:30px}
+  nav.dex a:hover{background:color-mix(in srgb,var(--red) 10%,transparent)}
+  nav.dex a.active{background:var(--red); color:#fff}
+  nav.dex a.active .no{color:#ffd7d7}
+  nav.dex a .dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:0 0 auto}
+  nav.dex a.caught .dot{background:var(--grass); box-shadow:0 0 0 3px color-mix(in srgb,var(--grass) 30%,transparent)}
+
+  main{min-width:0}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative; overflow:hidden; border-radius:26px; padding:44px 40px; margin-bottom:34px;
+    background:radial-gradient(120% 140% at 12% 10%, #ee1515 0%, #b00 46%, #7c0808 100%); color:#fff;
+    box-shadow:var(--shadow)}
+  .hero::after{content:""; position:absolute; right:-70px; top:50%; transform:translateY(-50%);
+    width:280px; height:280px; border-radius:50%; background:#fff; opacity:.12}
+  .hero::before{content:""; position:absolute; right:52px; top:50%; transform:translateY(-50%);
+    width:70px; height:70px; border-radius:50%; background:#fff; border:14px solid rgba(0,0,0,.25); opacity:.35}
+  .hero h1{margin:0 0 8px; font-size:clamp(1.9rem,4.5vw,3.1rem); letter-spacing:-.02em; line-height:1.02}
+  .hero h1 span{color:var(--yellow)}
+  .hero p{margin:0; max-width:60ch; color:#ffe9e9; font-size:1.02rem}
+  .hero .tag{display:inline-block; margin-bottom:16px; padding:5px 12px; border-radius:999px; font-size:.7rem;
+    letter-spacing:.14em; text-transform:uppercase; font-weight:800; background:var(--yellow); color:#4a3a00}
+
+  /* ---------- section cards ---------- */
+  section.part{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:30px 32px; margin-bottom:26px; box-shadow:var(--shadow-sm);
+    opacity:0; transform:translateY(14px); transition:opacity .5s, transform .5s}
+  section.part.in{opacity:1; transform:none}
+  .part-head{display:flex; align-items:flex-start; gap:14px; margin-bottom:6px}
+  .part-no{font-family:ui-monospace,monospace; font-weight:700; color:#fff; background:var(--ink);
+    border-radius:10px; padding:6px 10px; font-size:.8rem; flex:0 0 auto}
+  h2{font-size:clamp(1.35rem,2.6vw,1.9rem); margin:2px 0 4px; letter-spacing:-.01em; line-height:1.15}
+  h3{font-size:1.12rem; margin:26px 0 8px; color:var(--ink); letter-spacing:-.01em}
+  h3 .tiny{font-size:.7rem; color:var(--mute); font-weight:600}
+  p{margin:10px 0; color:var(--ink-soft)}
+  ul,ol{color:var(--ink-soft); padding-left:22px}
+  li{margin:5px 0}
+  strong{color:var(--ink)}
+  .lead{font-size:1.02rem; color:var(--ink)}
+
+  /* type badges */
+  .badge{display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px;
+    font-size:.66rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#fff; vertical-align:middle}
+  .b-def{background:var(--normal)} .b-algo{background:var(--electric); color:#4a3d00}
+  .b-ds{background:var(--steel); color:#2b2b3a} .b-theory{background:var(--psychic)}
+  .b-cong{background:var(--fire)} .b-result{background:var(--grass)} .b-tool{background:var(--water)}
+  .b-warn{background:var(--dark)}
+
+  /* callout / battle box */
+  .call{border-left:5px solid var(--gold); background:color-mix(in srgb,var(--gold) 9%,transparent);
+    border-radius:0 12px 12px 0; padding:14px 18px; margin:16px 0}
+  .call.blue{border-color:var(--blue); background:color-mix(in srgb,var(--blue) 9%,transparent)}
+  .call.red{border-color:var(--red); background:color-mix(in srgb,var(--red) 9%,transparent)}
+  .call.grass{border-color:var(--grass); background:color-mix(in srgb,var(--grass) 12%,transparent)}
+  .call b.k{display:block; font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:var(--mute); margin-bottom:4px}
+  .example{border:1px dashed var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;
+    background:color-mix(in srgb,var(--yellow) 7%,transparent)}
+  .example .lbl{font-weight:800; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); display:flex; align-items:center; gap:8px}
+
+  code{background:color-mix(in srgb,var(--ink) 8%,transparent); padding:1px 6px; border-radius:6px; font-size:.86em}
+  pre{background:var(--ink); color:#eef; padding:14px 16px; border-radius:12px; overflow:auto; font-size:.82rem; line-height:1.5}
+  @media (prefers-color-scheme: dark){ pre{background:#0c0c12} }
+
+  /* tables */
+  .tablewrap{overflow-x:auto; margin:16px 0}
+  table{border-collapse:collapse; width:100%; min-width:460px; font-size:.9rem}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line)}
+  th{font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--mute)}
+  td.mono,.num{font-family:ui-monospace,monospace}
+  tr:last-child td{border-bottom:none}
+  .win{color:var(--grass); font-weight:700}
+  .bad{color:var(--red); font-weight:700}
+
+  /* collapsible deep dive */
+  details.dive{border:1px solid var(--line); border-radius:12px; margin:14px 0; overflow:hidden; background:color-mix(in srgb,var(--blue) 5%,transparent)}
+  details.dive summary{cursor:pointer; padding:12px 16px; font-weight:700; list-style:none; display:flex; align-items:center; gap:10px}
+  details.dive summary::-webkit-details-marker{display:none}
+  details.dive summary .chev{margin-left:auto; transition:transform .2s}
+  details.dive[open] summary .chev{transform:rotate(90deg)}
+  details.dive .body{padding:0 16px 14px}
+
+  /* catch button */
+  .catch{display:inline-flex; align-items:center; gap:9px; margin-top:20px; padding:9px 16px; border-radius:12px;
+    border:2px solid var(--line); background:var(--card); color:var(--ink-soft); font-weight:700; font-size:.82rem; cursor:pointer;
+    transition:transform .1s, background .15s, border-color .15s}
+  .catch:active{transform:translateY(1px) scale(.98)}
+  .catch.caught{background:var(--grass); border-color:var(--grass); color:#083b08}
+  .catch .pb{width:20px;height:20px}
+
+  /* glossary */
+  #glossary .search{position:relative; margin:14px 0 18px}
+  #glossary input{width:100%; padding:12px 14px 12px 42px; border-radius:12px; border:1px solid var(--line);
+    background:var(--paper); color:var(--ink); font-size:.95rem}
+  #glossary input:focus{outline:none; border-color:var(--red); box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 22%,transparent)}
+  #glossary .search svg{position:absolute; left:14px; top:50%; transform:translateY(-50%); opacity:.5}
+  .gloss{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .gterm{border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:color-mix(in srgb,var(--card) 60%, var(--paper))}
+  .gterm h5{margin:0 0 4px; font-size:.9rem; color:var(--red)}
+  .gterm p{margin:0; font-size:.82rem}
+  .gterm.hide{display:none}
+  .nohit{color:var(--mute); font-size:.9rem; padding:10px}
+
+  .foot{max-width:var(--maxw); margin:0 auto; padding:10px 20px 60px; color:var(--mute); font-size:.82rem; text-align:center}
+  .totop{position:fixed; right:18px; bottom:18px; z-index:90; width:46px; height:46px; border-radius:50%; border:none;
+    background:var(--red); color:#fff; font-size:1.2rem; cursor:pointer; box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .2s}
+  .totop.show{opacity:1; pointer-events:auto}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr; padding-top:78px}
+    nav.dex{position:fixed; top:64px; left:0; bottom:0; width:270px; z-index:105; border-radius:0 16px 16px 0;
+      transform:translateX(-105%); transition:transform .25s; max-height:none}
+    nav.dex.open{transform:none}
+    .menu-btn{display:block}
+    .dex-counter{display:none}
+    .gloss{grid-template-columns:1fr}
+    .hero{padding:34px 24px}
+    section.part{padding:24px 20px}
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="prog"></div>
+
+<header class="top">
+  <svg class="pokeball spin" viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="6"/>
+    <path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="6"/>
+    <line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="6"/>
+    <circle cx="50" cy="50" r="14" fill="#fff" stroke="#17171d" stroke-width="6"/>
+    <circle cx="50" cy="50" r="6" fill="#fff" stroke="#17171d" stroke-width="4"/>
+  </svg>
+  <div class="brand">ADAPT<b>SKEL</b> Pokédex<small>The complete field guide</small></div>
+  <div class="dex-counter">Caught <b><span id="caught">0</span>/9</b></div>
+  <button class="menu-btn" id="menuBtn" aria-label="Toggle menu">☰</button>
+</header>
+
+<div class="shell">
+  <!-- ============ NAV ============ -->
+  <nav class="dex" id="dex">
+    <h4>Pokédex — jump to entry</h4>
+    <a href="#p1"><span class="no">#001</span><span class="dot"></span>The Problem</a>
+    <a href="#p2"><span class="no">#002</span><span class="dot"></span>Background Concepts</a>
+    <a href="#p3"><span class="no">#003</span><span class="dot"></span>Tools &amp; Tech</a>
+    <a href="#p4"><span class="no">#004</span><span class="dot"></span>The Algorithm</a>
+    <a href="#p5"><span class="no">#005</span><span class="dot"></span>Congestion Control</a>
+    <a href="#p6"><span class="no">#006</span><span class="dot"></span>Methodology</a>
+    <a href="#p7"><span class="no">#007</span><span class="dot"></span>Results &amp; Discussion</a>
+    <a href="#p8"><span class="no">#008</span><span class="dot"></span>Demo Playbook</a>
+    <a href="#glossary"><span class="no">#009</span><span class="dot"></span>Glossary</a>
+  </nav>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <div class="hero">
+      <span class="tag">Gotta learn 'em all</span>
+      <h1>ADAPTSKEL, <span>explained from zero</span></h1>
+      <p>A fully-dynamic shortest-path engine, every concept defined from scratch — graphs, Dijkstra, Link-Cut Trees, the OMv wall, and congestion control. Built for the student who has never seen any of this before. Catch each entry as you master it.</p>
+    </div>
+
+    <!-- ============ PART 1 ============ -->
+    <section class="part" id="p1">
+      <div class="part-head"><span class="part-no">#001</span>
+        <div><h2>The Problem</h2>
+        <p class="lead">What ADAPTSKEL actually solves, and why the obvious solution is too slow.</p></div>
+      </div>
+
+      <h3>1.1 What is a graph? <span class="badge b-def">Definition</span></h3>
+      <p>A <strong>graph</strong> is "dots connected by lines." Formally <code>G = (V, E)</code>:</p>
+      <ul>
+        <li><strong>Vertex</strong> (or <strong>node</strong>): a dot. Here, each vertex is a <em>city</em> — Delhi, Mumbai, Bangalore.</li>
+        <li><strong>Edge</strong>: a line joining two vertices. Here, an edge is a <em>fiber-optic cable</em> between two cities.</li>
+        <li><strong>Weight</strong>: a number on an edge saying how costly it is to cross. Here it is <em>latency</em> — milliseconds a signal takes (we use 1&nbsp;ms per 100&nbsp;km).</li>
+      </ul>
+      <p>Our backbone: 34 cities (vertices), ~60 cables (edges). It is <strong>undirected</strong> — a cable carries traffic both ways.</p>
+
+      <h3>1.2 What is a shortest path? <span class="badge b-def">Definition</span></h3>
+      <p>A <strong>path</strong> from A to B is a sequence of edges you follow. Its <strong>length</strong> is the sum of edge weights. The <strong>shortest path</strong> has the smallest total. The <strong>shortest-path distance</strong> <code>δ(A,B)</code> is that smallest total — the core quantity of the whole project.</p>
+      <div class="example"><div class="lbl">Worked example</div>
+        <p style="margin:8px 0 0">Delhi→Mumbai direct = 14&nbsp;ms. But Delhi→Jaipur→Mumbai = 6 + 7 = <strong>13&nbsp;ms</strong>. The 2-hop route is shorter even with more hops. So <code>δ(Delhi,Mumbai)=13</code>.</p></div>
+
+      <h3>1.3 What is SSSP? <span class="badge b-def">Definition</span></h3>
+      <p><strong>SSSP = Single-Source Shortest Paths.</strong> Fix ONE start vertex (the <em>source</em>) and find the shortest distance to <em>every</em> other vertex. Our source is Delhi (node&nbsp;0): "from Delhi, shortest latency to all 33 other cities?" (<strong>APSP</strong> = all-pairs, far more expensive — not our main job.)</p>
+
+      <h3>1.4 "Dynamic" and "fully dynamic" <span class="badge b-def">Definition</span></h3>
+      <p>A <strong>static</strong> graph never changes. A <strong>dynamic</strong> graph changes: <strong>insert</strong> an edge (new/recovered cable), <strong>delete</strong> an edge (fiber cut), <strong>reweight</strong> an edge (congestion). Terminology:</p>
+      <ul>
+        <li><strong>Incremental</strong> — only insertions.</li>
+        <li><strong>Decremental</strong> — only deletions.</li>
+        <li><strong>Fully dynamic</strong> — both, interleaved, forever. <em>This is us.</em></li>
+      </ul>
+
+      <h3>1.5 Why is this hard?</h3>
+      <p>Obvious fix: after every change, recompute everything with <strong>Dijkstra</strong> — costing about <code>O(E log V)</code>. On 100,000 edges that's huge work <em>per change</em>. If the network changes thousands of times a second, from-scratch recompute is far too slow. The dream: when one edge changes, do work proportional only to the part that <em>actually</em> changed. That's what ADAPTSKEL chases.</p>
+      <button class="catch" data-id="p1"><svg class="pb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="7"/><path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="7"/><line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="7"/><circle cx="50" cy="50" r="13" fill="#fff" stroke="#17171d" stroke-width="7"/></svg><span>Catch this entry</span></button>
+    </section>
+
+    <!-- ============ PART 2 ============ -->
+    <section class="part" id="p2">
+      <div class="part-head"><span class="part-no">#002</span>
+        <div><h2>Background Concepts</h2>
+        <p class="lead">Every idea you need before the algorithm makes sense — defined plainly.</p></div>
+      </div>
+
+      <h3>2.1 Big-O notation <span class="badge b-theory">Theory</span></h3>
+      <p>Big-O describes how running time <strong>grows as input grows</strong>, ignoring constants. "Double the graph — what happens to time?"</p>
+      <div class="tablewrap"><table>
+        <tr><th>Notation</th><th>Name</th><th>Meaning</th><th>n = 1,000,000</th></tr>
+        <tr><td class="mono">O(1)</td><td>constant</td><td>work independent of size (a table lookup)</td><td class="num">1</td></tr>
+        <tr><td class="mono">O(log n)</td><td>logarithmic</td><td>grows very slowly (halvings to reach 1)</td><td class="num">≈ 20</td></tr>
+        <tr><td class="mono">O(log² n)</td><td>log-squared</td><td>(log n) × (log n)</td><td class="num">≈ 400</td></tr>
+        <tr><td class="mono">O(n)</td><td>linear</td><td>proportional to size</td><td class="num">1,000,000</td></tr>
+        <tr><td class="mono">O(E log V)</td><td>Dijkstra</td><td>grows with edge count — the expensive one</td><td class="num">large</td></tr>
+      </table></div>
+      <p>Goal: keep queries near <code>O(1)</code>/<code>O(log n)</code> instead of the <code>O(E log V)</code> of a full recompute.</p>
+
+      <h3>2.2 Amortized complexity <span class="badge b-theory">Theory</span></h3>
+      <p>Some operations are occasionally expensive but usually cheap. <strong>Amortized cost</strong> = total cost of many operations ÷ number of operations. Like a water heater: most showers the water is already hot; rarely it reheats the tank; averaged over a month, cheap per shower. "O(log² n) amortized" means <em>on average across many updates</em>, not every single one.</p>
+
+      <h3>2.3 Dijkstra's algorithm <span class="badge b-algo">Algorithm</span></h3>
+      <p>The classic shortest-path method. Picture water spreading from the source — near cities first, far later:</p>
+      <ol>
+        <li>Tentative distance = 0 for source, ∞ for everyone else.</li>
+        <li>Keep a <strong>priority queue</strong> of vertices ordered by tentative distance, smallest first.</li>
+        <li>Take the smallest vertex <code>x</code>; its distance is now final. For each neighbor <code>y</code>: if <code>dist[x] + weight(x,y) &lt; dist[y]</code>, lower <code>dist[y]</code>. This is <strong>relaxation</strong>.</li>
+        <li>Repeat until the queue empties.</li>
+      </ol>
+      <p>Cost <code>O(E log V)</code>. <strong>Relaxation</strong> — "found a cheaper way to reach y, so lower its distance" — is the single most important sub-idea. ADAPTSKEL's updates are "do only the relaxations actually needed."</p>
+
+      <h3>2.4 Trees, forests, spanning trees <span class="badge b-def">Definition</span></h3>
+      <ul>
+        <li><strong>Tree</strong>: connected, no cycles — exactly one path between any two vertices. <code>k</code> vertices → <code>k−1</code> edges.</li>
+        <li><strong>Forest</strong>: several separate trees.</li>
+        <li><strong>Spanning tree</strong>: a tree using a subset of edges that touches <em>all</em> vertices — the loop-free backbone connecting everyone.</li>
+        <li><strong>Spanning forest</strong>: one spanning tree per disconnected piece.</li>
+      </ul>
+      <p>Why care: ADAPTSKEL keeps a spanning forest (<code>F₁</code>) as a fast skeleton. Trees are cheap to query; the full cyclic graph is not.</p>
+
+      <h3>2.5 Splay trees <span class="badge b-ds">Data structure</span></h3>
+      <p>A <strong>binary search tree</strong> finds/inserts/deletes in <code>O(log n)</code> if balanced. A <strong>splay tree</strong> self-balances by rotating every touched node to the top, so hot items drift up — giving <code>O(log n)</code> amortized. It's the engine inside the Link-Cut Tree; you needn't master it, just know "balanced-tree machinery."</p>
+
+      <h3>2.6 Heap / priority queue <span class="badge b-ds">Data structure</span></h3>
+      <p>A container where you add items with a priority and quickly remove the smallest. A <strong>heap</strong> gives <code>O(log n)</code> add and remove-min. Dijkstra uses it to always grab the closest unprocessed vertex; our code uses Python's <code>heapq</code>.</p>
+
+      <h3>2.7 Link-Cut Tree (LCT) <span class="badge b-ds">Data structure</span></h3>
+      <p>Maintains a <em>forest</em> with all of these in <code>O(log n)</code> amortized: <code>link(u,v)</code> join two trees, <code>cut(u,v)</code> split, <code>connected(u,v)</code>, and path queries (total weight u→v). "A spanning forest you can rewire fast and ask path questions about." Holds <code>F₁</code>. File: <code>core/python/lct.py</code>.</p>
+
+      <h3>2.8 Euler Tour Tree (ETT) <span class="badge b-ds">Data structure</span></h3>
+      <p>Another forest structure, great at edits, connectivity, and — crucially — <strong>finding a replacement edge</strong> when a tree edge dies. It writes each tree as a linear "Euler tour" (walk around the tree, list each vertex you pass) stored in a balanced tree, so edits are <code>O(log n)</code>. Holds <code>F₂</code>. File: <code>core/python/ett.py</code>.</p>
+
+      <h3>2.9 The Holm "level" trick <span class="badge b-theory">Theory</span></h3>
+      <p>When you delete a skeleton edge, the tree splits and you must search leftover edges for one that reconnects the halves. Naively slow. <strong>Holm, de Lichtenberg &amp; Thorup (2001)</strong> give each edge a <strong>level</strong> (small integer); edges get promoted as they survive searches; searching high→low with only-promotions bounds the <em>total</em> lifetime work → <code>O(log² n)</code> amortized reconnection. Just know: "levels make replacement search provably cheap over time."</p>
+
+      <h3>2.10 Ramalingam–Reps <span class="badge b-algo">Algorithm</span></h3>
+      <p><strong>Ramalingam &amp; Reps (1996)</strong> — the standard way to update shortest paths <em>incrementally</em>, touching only vertices whose distance actually changes.</p>
+      <ul>
+        <li><strong>Decrease</strong> (edge cheaper/new): distances only drop. Seed relaxation at the changed edge; it ripples out and stops when nothing improves.</li>
+        <li><strong>Increase</strong> (edge costlier/deleted): distances only rise, and only for vertices whose shortest path <em>used</em> that edge. (1) find the <strong>affected set</strong> — vertices that lost their <em>support</em> (a vertex is <em>supported</em> if some neighbor still gives <code>dist[nbr]+w = dist[v]</code>); (2) reset them to ∞; (3) recompute with a small Dijkstra seeded from unaffected neighbors.</li>
+      </ul>
+      <p>Exactly what the honesty fix implements. "Output-sensitive" = cost proportional to what changed, not the whole graph.</p>
+
+      <h3>2.11 The OMv conjecture <span class="badge b-theory">Theory</span></h3>
+      <p><strong>OMv = Online Matrix-Vector multiplication.</strong> You get an <code>n×n</code> 0/1 matrix <code>M</code> to preprocess. Then 0/1 vectors <code>v₁…vₙ</code> arrive <em>one at a time</em>; you must output <code>M·vᵢ</code> before seeing the next vector. The <strong>conjecture</strong>: you cannot beat ~<code>O(n²)</code> per vector (no algorithm does all n rounds in <code>O(n³⁻ᵉ)</code>). Unproven, but widely believed.</p>
+      <div class="call red"><b class="k">Why this matters to you</b>
+        <p style="margin:0">If OMv is true, then <strong>exact fully-dynamic shortest paths cannot have BOTH fast updates and fast queries</strong> — a hard wall. So the old README claim "O(log² n) exact fully-dynamic SSSP" claimed to break a wall that (under a believed conjecture) can't be broken. We rewrote it to be honest. Stating this <em>correctly</em> impresses an examiner — you know your problem's limits. A <em>conjecture</em> = a precise statement believed true with strong evidence but not yet proven (like P ≠ NP).</p></div>
+      <button class="catch" data-id="p2"><svg class="pb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="7"/><path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="7"/><line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="7"/><circle cx="50" cy="50" r="13" fill="#fff" stroke="#17171d" stroke-width="7"/></svg><span>Catch this entry</span></button>
+    </section>
+
+    <!-- ============ PART 3 ============ -->
+    <section class="part" id="p3">
+      <div class="part-head"><span class="part-no">#003</span>
+        <div><h2>Tools &amp; Technologies</h2>
+        <p class="lead">Every tool in the project and why it's there.</p></div>
+      </div>
+
+      <h3>Algorithm &amp; testing <span class="badge b-tool">Stack</span></h3>
+      <ul>
+        <li><strong>Python</strong> — readable; the reference implementation, easy to read and grade.</li>
+        <li><strong>NetworkX</strong> — trusted graph library; used as the <strong>oracle</strong> (the known-correct answer we check against). No longer produces our real answers.</li>
+        <li><strong>NumPy</strong> — fast numerics for statistics (percentiles) in metrics.</li>
+        <li><strong>pytest</strong> — runs the correctness tests.</li>
+      </ul>
+      <h3>Backend (server) <span class="badge b-tool">Stack</span></h3>
+      <ul>
+        <li><strong>FastAPI</strong> — builds the API endpoints (<code>/route</code>, <code>/failure</code>, <code>/topology</code>…).</li>
+        <li><strong>uvicorn / gunicorn</strong> — run the server, handle web requests.</li>
+        <li><strong>PostgreSQL</strong> — optional event logging; app runs fine without it.</li>
+      </ul>
+      <h3>Frontends (what you see) <span class="badge b-tool">Stack</span></h3>
+      <ul>
+        <li><strong>React</strong> — UI from reusable components. <strong>TypeScript</strong> — JS with type-checking. <strong>Vite</strong> — build/dev server.</li>
+        <li><strong>Three.js</strong> — the 3D glowing graph (GRAPHSKEL). <strong>Leaflet</strong> — the India map (routing app). <strong>Recharts</strong> — live telemetry charts.</li>
+      </ul>
+      <h3>Packaging <span class="badge b-tool">Stack</span></h3>
+      <ul>
+        <li><strong>Docker</strong> — packs each part into an isolated container that runs identically anywhere.</li>
+        <li><strong>docker-compose</strong> — starts all four containers (backend, 2 frontends, database) with one command.</li>
+      </ul>
+      <button class="catch" data-id="p3"><svg class="pb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="7"/><path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="7"/><line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="7"/><circle cx="50" cy="50" r="13" fill="#fff" stroke="#17171d" stroke-width="7"/></svg><span>Catch this entry</span></button>
+    </section>
+
+    <!-- ============ PART 4 ============ -->
+    <section class="part" id="p4">
+      <div class="part-head"><span class="part-no">#004</span>
+        <div><h2>The ADAPTSKEL Algorithm</h2>
+        <p class="lead">The heart, in finest detail. Name = <strong>Adapt</strong>ive <strong>Skel</strong>eton.</p></div>
+      </div>
+
+      <h3>4.1 Big picture — two layers</h3>
+      <p>Every edge lives in exactly one layer:</p>
+      <ul>
+        <li><span class="badge b-electric" style="background:var(--electric);color:#4a3d00">F₁ Skeleton</span> — the <strong>hot</strong> edges (often on asked-about paths), stored in the <strong>Link-Cut Tree</strong>. Kept as a <em>spanning forest</em> (connects all, no cycles) → fast <code>O(log n)</code> questions.</li>
+        <li><span class="badge b-ds">F₂ Residual</span> — the <strong>cold</strong> edges, stored in the <strong>Euler Tour Tree</strong> with Holm levels. Still real edges; useful as replacements later.</li>
+      </ul>
+      <div class="call blue"><b class="k">Invariant (a rule that must ALWAYS hold)</b><p style="margin:0">Every edge is in exactly one of F₁ or F₂, and together they are the whole edge set: <code>F₁ ∪ F₂ = E</code>.</p></div>
+
+      <h3>4.2 The three novel ideas</h3>
+      <p><strong>Idea 1 — Heat-based promotion.</strong> Each edge has a <strong>heat</strong> score = how many of the last <code>W</code> queries used it. Cross threshold <code>T</code> → promote F₂→F₁. Fall back → demote F₁→F₂. The skeleton auto-crystallizes around the busy subgraph. File: <code>heat_table.py</code>.</p>
+      <p><strong>Idea 2 — Delta-LDB batching.</strong> Distance events split in two:</p>
+      <ul>
+        <li><strong>DECREASE</strong> (insert/cheapen) → distances shrink. A stored value that's slightly too big is a safe upper bound → can be <em>deferred/batched</em>.</li>
+        <li><strong>INCREASE</strong> (delete/raise) → distances grow. A stored value too small is <em>wrong</em> → must be fixed <em>before</em> any query.</li>
+      </ul>
+      <p>"Decreases lazy, increases urgent" is what bounds the work. File: <code>delta_ldb.py</code>.</p>
+      <p><strong>Idea 3 — Two-level forest with fast repair.</strong> Delete a skeleton edge → tree splits → find a replacement from F₂ to re-stitch (Holm levels make it provably cheap).</p>
+
+      <h3>4.3 What ADAPTSKEL stores</h3>
+      <div class="tablewrap"><table>
+        <tr><th>Field</th><th>Meaning</th></tr>
+        <tr><td class="mono">_dist[v]</td><td>shortest distance source→v. <strong>The answer table.</strong> Kept exact, incrementally.</td></tr>
+        <tr><td class="mono">_pred[v]</td><td>parent of v on its shortest path — lets us rebuild the actual route.</td></tr>
+        <tr><td class="mono">_adj[u][v]</td><td>neighbors + weights — the real weighted graph.</td></tr>
+        <tr><td class="mono">_f1_edges / _f2_edges</td><td>which layer each edge is in.</td></tr>
+        <tr><td class="mono">_lct / _ett</td><td>Link-Cut Tree (F₁) / Euler Tour Tree (F₂).</td></tr>
+        <tr><td class="mono">_heat</td><td>the heat table.</td></tr>
+        <tr><td class="mono">T, W, B</td><td>promote threshold / heat window / batch size (~log n).</td></tr>
+      </table></div>
+
+      <h3>4.4 INSERT — step by step <span class="badge b-algo">Algorithm</span></h3>
+      <ol>
+        <li>Ensure both vertices exist; add edge to the real graph.</li>
+        <li><strong>Repair distances (DECREASE).</strong> A new/cheaper edge only shrinks distances → run <code>_relax_decrease</code>: if <code>dist[u]+w &lt; dist[v]</code>, set <code>dist[v]=dist[u]+w</code>, record predecessor, push into a queue; then Dijkstra-relax outward, stopping when nothing improves. Only affected vertices touched.</li>
+        <li><strong>Choose layer.</strong> Hot &amp; not already connected in skeleton → F₁ (link in LCT). Else → F₂ (add to ETT).</li>
+      </ol>
+      <div class="example"><div class="lbl">Battle example — insert Jaipur–Mumbai (w = 7)</div>
+        <p style="margin:8px 0 0">Source Delhi, <code>dist[Jaipur]=6</code>, <code>dist[Mumbai]=20</code> (long detour). Check <code>6+7=13 &lt; 20</code> → Mumbai improves to <strong>13</strong>, Jaipur becomes its predecessor. Then relax Mumbai's neighbors (Pune 25 → <code>13+8=21</code>)… only cities that actually get closer update. Delhi, Jaipur, far untouched cities never move.</p></div>
+
+      <h3>4.5 DELETE — step by step (the hard one) <span class="badge b-algo">Algorithm</span></h3>
+      <ol>
+        <li>Remove edge from the real graph.</li>
+        <li>Remove from its layer. If F₂ — just drop. If F₁ — the tree splits → <code>_f1_deletion_repair</code>: search F₂ (Holm levels, high→low) for a replacement that reconnects the halves; move it up to F₁.</li>
+        <li><strong>Repair distances (INCREASE)</strong> via <code>_recompute_increase</code> (Ramalingam–Reps):</li>
+      </ol>
+      <div class="call"><b class="k">Phase 1 — find affected set</b><p style="margin:0">From <code>u,v</code>, find vertices that lost <em>support</em>. <code>x</code> is <em>supported</em> if a neighbor <code>y</code> still gives <code>dist[y]+w(x,y)=dist[x]</code>. No support → affected (its old distance is now too small). Spread: a vertex fed <em>through</em> an affected vertex with no other support is affected too.</p></div>
+      <div class="call"><b class="k">Phase 2 — recompute</b><p style="margin:0">Set affected vertices to ∞. For each, take the best <code>dist[unaffected neighbor]+w</code> as a fresh estimate; run a small Dijkstra among the affected. Unaffected vertices never touched.</p></div>
+      <div class="example"><div class="lbl">Battle example — cut Jaipur–Mumbai</div>
+        <p style="margin:8px 0 0">Mumbai was Delhi→Jaipur→Mumbai = 13; Pune hung off Mumbai at 21. Cut the cable. Phase 1: does Mumbai still have support? If the best alternative is …→Hyderabad→Mumbai = 18, Mumbai <em>is</em> supported (worse value); only Mumbai + Pune need updating. Phase 2 lifts Mumbai→18, Pune→26. The rest of the country untouched.</p></div>
+
+      <h3>4.6 QUERY — step by step <span class="badge b-algo">Algorithm</span></h3>
+      <ul>
+        <li><strong>s = source (Delhi):</strong> answer already in <code>_dist[t]</code> → return it, <strong>O(1)</strong>. No Dijkstra, no oracle. The honest speed win.</li>
+        <li><strong>s ≠ source:</strong> structure only maintains the fixed source, so run one honest Dijkstra from <code>s</code> (<code>O(E log V)</code>) — no free lunch, stated plainly.</li>
+      </ul>
+      <p>Then update <strong>heat</strong>: bump every edge on the returned path; cross <code>T</code> → promote; gone cold → demote. That's how the skeleton adapts to usage.</p>
+
+      <h3>4.7 The five invariants <span class="badge b-def">Definition</span></h3>
+      <ol>
+        <li><code>F₁ ∪ F₂ = E</code> — every edge in exactly one layer.</li>
+        <li>F₁ is a valid spanning forest — connects what it should, no cycles.</li>
+        <li><code>dist[v]</code> exactly correct — checked vs the NetworkX oracle. <strong>The big one</strong>: proves incremental maintenance equals from-scratch, every time.</li>
+        <li><code>heat[e] ≤ W</code> — no heat exceeds the window.</li>
+        <li>F₁ edges are hot (<code>heat ≥ T/2</code>) — skeleton really holds hot edges, with hysteresis.</li>
+      </ol>
+      <div class="call blue"><b class="k">Hysteresis</b><p style="margin:0">Promote at <code>T</code>, demote only at <code>T/2</code>. The gap stops an edge "flickering" in/out when its heat hovers near the line — same reason a thermostat doesn't switch on/off every second.</p></div>
+
+      <h3>4.8 The honest complexity — say exactly this <span class="badge b-warn">Read before demo</span></h3>
+      <ul>
+        <li><strong>Source-rooted query: O(1)</strong> — genuine table read.</li>
+        <li><strong>Insert / delete: output-sensitive</strong> — work proportional to affected vertices.</li>
+        <li><strong>Exact</strong> — oracle-verified after every mutation.</li>
+        <li><strong>NOT</strong> worst-case polylog for updates (OMv wall). Updates beat a Dijkstra rerun when changes are local; worst case ≈ one Dijkstra.</li>
+      </ul>
+      <button class="catch" data-id="p4"><svg class="pb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="7"/><path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="7"/><line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="7"/><circle cx="50" cy="50" r="13" fill="#fff" stroke="#17171d" stroke-width="7"/></svg><span>Catch this entry</span></button>
+    </section>
+
+    <!-- ============ PART 5 ============ -->
+    <section class="part" id="p5">
+      <div class="part-head"><span class="part-no">#005</span>
+        <div><h2>Congestion Control</h2>
+        <p class="lead">"Many people down the same road" — detected, and solved by rerouting.</p></div>
+      </div>
+
+      <h3>5.1 The problem <span class="badge b-cong">Congestion</span></h3>
+      <ul>
+        <li><strong>Capacity</strong> — max traffic a cable carries (Gbps). Hubs 100, others 40.</li>
+        <li><strong>Load</strong> — traffic actually flowing now.</li>
+        <li><strong>Utilisation</strong> = load / capacity. 0.5 half-full; 1.0 full; &gt;1.0 <strong>overloaded</strong> → excess dropped (lost).</li>
+      </ul>
+      <p>The plain router sends every flow down the lowest-latency path, ignoring load. Many big flows pile onto the same hub cable → its load exceeds capacity → congestion — while other slightly-longer cables sit empty.</p>
+
+      <h3>5.2 The solution — load-adaptive weights <span class="badge b-cong">Congestion</span></h3>
+      <p>Make a cable's <em>effective</em> cost rise as it fills, so later flows pick emptier detours. This is a stream of edge-reweight events — exactly what ADAPTSKEL absorbs. Effective weight (file <code>routing/congestion.py</code>):</p>
+      <pre>effective_weight = base_latency × (1 + alpha × over^beta) × heat_term
+where  over = max(0, utilisation − knee)</pre>
+      <div class="tablewrap"><table>
+        <tr><th>Piece</th><th>Default</th><th>Meaning</th></tr>
+        <tr><td class="mono">base_latency</td><td>—</td><td>the cable's normal latency (raw weight)</td></tr>
+        <tr><td class="mono">knee</td><td class="num">0.8</td><td>below 80% full, penalty = 0 → weight = base latency → <strong>routes identically to baseline</strong> (never worse)</td></tr>
+        <tr><td class="mono">alpha</td><td class="num">10</td><td>how big the penalty gets near full (~11× cost)</td></tr>
+        <tr><td class="mono">beta</td><td class="num">3</td><td>how sharp the ramp — stays ~0 until near the knee, then shoots up</td></tr>
+        <tr><td class="mono">heat_term</td><td class="num">γ=0.5</td><td><strong>heat-as-load</strong>: only active above the knee; busiest-AND-hottest links shed first</td></tr>
+      </table></div>
+      <div class="call grass"><b class="k">The guarantee (proven by a test)</b><p style="margin:0">Below the knee, smart weights equal baseline weights <em>exactly</em> → identical routes when nothing is congested → congestion-aware loss is <strong>≤ baseline, always</strong>. It only diverts under real pressure.</p></div>
+
+      <h3>5.3 The loss model <span class="badge b-cong">Congestion</span></h3>
+      <p>Measured on the <em>whole</em> demand set together (not one at a time):</p>
+      <ol>
+        <li>Route every demand, accumulating <code>load</code> per cable.</li>
+        <li>Per cable: <code>overload = max(0, load − capacity)</code>.</li>
+        <li><code>total lost = (demands with no path) + Σ overloads</code>.</li>
+        <li><code>loss% = total lost / total offered × 100</code>.</li>
+      </ol>
+      <p>This aggregate view reveals congestion the old per-demand check missed.</p>
+
+      <h3>5.4 Calibration <span class="badge b-cong">Congestion</span></h3>
+      <p>The traffic generator offers far more than the backbone can carry, so raw numbers = 100% loss for everyone (meaningless). Fix: uniformly scale demand so the <em>healthy</em> network's busiest cable sits at ~85% (<code>target_max_util = 0.85</code>) — "an ISP run at a sensible load." Calibrate once on the healthy net, hold it fixed as cables fail → failures create real overload → the win becomes visible.</p>
+
+      <h3>5.5 The result (measured live) <span class="badge b-result">Result</span></h3>
+      <div class="tablewrap"><table>
+        <tr><th>Scenario</th><th>Latency-only loss</th><th>Congestion-aware loss</th><th>Win</th></tr>
+        <tr><td>Healthy</td><td class="num">0%</td><td class="num">0%</td><td class="num">0</td></tr>
+        <tr><td>Cut 4 hub cables</td><td class="num bad">71.5%</td><td class="num win">27.2%</td><td class="num win">+44 pp</td></tr>
+      </table></div>
+      <p>Busiest-link oversubscription also drops (e.g. 7.0× → 3.6×): traffic really is being spread. ("pp" = percentage points.)</p>
+      <button class="catch" data-id="p5"><svg class="pb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="7"/><path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="7"/><line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="7"/><circle cx="50" cy="50" r="13" fill="#fff" stroke="#17171d" stroke-width="7"/></svg><span>Catch this entry</span></button>
+    </section>
+
+    <!-- ============ PART 6 ============ -->
+    <section class="part" id="p6">
+      <div class="part-head"><span class="part-no">#006</span>
+        <div><h2>Methodology &amp; How It's Verified</h2>
+        <p class="lead">How the project was built and proven correct.</p></div>
+      </div>
+
+      <h3>6.1 Reference-first</h3>
+      <p>Write the algorithm first in clean, readable Python whose only job is to be <em>correct and understandable</em>. Optimize/port to C++ only after correctness is nailed. We're at the correct-reference stage; the C++ port is future work.</p>
+
+      <h3>6.2 Oracle testing <span class="badge b-def">Definition</span></h3>
+      <p>An <strong>oracle</strong> is a separate, trusted source of correct answers — here, NetworkX's Dijkstra. The test (<code>tests/test_correctness.py</code>):</p>
+      <ol>
+        <li>Generate thousands of random inserts/deletes/queries.</li>
+        <li>Feed the same sequence to ADAPTSKEL and the oracle.</li>
+        <li>After every query, assert both distances are identical.</li>
+      </ol>
+      <p>Passes on 200 vertices × 2000 ops across many seeds — strong evidence the maintenance is exact. 76 tests total, all green. This style — assert a <em>property</em> ("always equals the oracle") over random inputs — is called <strong>property-based testing</strong>.</p>
+
+      <h3>6.3 System architecture</h3>
+      <pre>Browser (2 apps)              Server                    Algorithm
+GRAPHSKEL (Three.js)  &lt;-HTTP-&gt; FastAPI backend  &lt;-----&gt;  AdaptSkel engine
+Routing map (Leaflet)          routers+services         + routing sim
+                                   |
+                               Postgres (optional log)</pre>
+      <p>Browser calls HTTP endpoints; backend calls the Python engine; frontends draw the JSON.</p>
+      <button class="catch" data-id="p6"><svg class="pb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="7"/><path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="7"/><line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="7"/><circle cx="50" cy="50" r="13" fill="#fff" stroke="#17171d" stroke-width="7"/></svg><span>Catch this entry</span></button>
+    </section>
+
+    <!-- ============ PART 7 ============ -->
+    <section class="part" id="p7">
+      <div class="part-head"><span class="part-no">#007</span>
+        <div><h2>Results &amp; Discussion</h2>
+        <p class="lead">What's proven, what's honest, what's next.</p></div>
+      </div>
+
+      <h3>7.1 Correctness (the solid result) <span class="badge b-result">Result</span></h3>
+      <p>ADAPTSKEL's maintained distances match the oracle exactly on every query across thousands of random ops and seeds — including strict debug mode checking all five invariants after every mutation. <strong>Defensible claim: exact fully-dynamic SSSP labels, oracle-verified.</strong></p>
+
+      <h3>7.2 Query performance <span class="badge b-result">Result</span></h3>
+      <p>Source-rooted queries are genuine <strong>O(1)</strong> — a label read, no recompute, no oracle. Arbitrary-pair queries honestly cost one Dijkstra.</p>
+
+      <h3>7.3 Congestion <span class="badge b-result">Result</span></h3>
+      <p>Healthy = 0% both; under 4 hub failures, loss cut 71.5% → 27.2% (+44 pp), provably never worse. Busiest-link oversubscription 7.0× → 3.6×.</p>
+
+      <h3>7.4 Honest limitations (state these — they earn credibility) <span class="badge b-warn">Honesty</span></h3>
+      <ul>
+        <li>Not worst-case polylog for updates (OMv). We deliver output-sensitive updates + O(1) source query, and say so.</li>
+        <li>Fixed single source — arbitrary-pair queries get no speed-up.</li>
+        <li>Python reference, not the C++ performance port yet.</li>
+        <li>Congestion control is single-path rerouting, not yet multi-path (ECMP) splitting.</li>
+      </ul>
+
+      <h3>7.5 Honest comparison</h3>
+      <div class="tablewrap"><table>
+        <tr><th>Approach</th><th>Source query</th><th>Update</th><th>Exact?</th></tr>
+        <tr><td>Dijkstra rerun</td><td>O(1) after an O(E log V) recompute every change</td><td class="mono">O(E log V)</td><td class="win">✓</td></tr>
+        <tr><td><strong>ADAPTSKEL</strong></td><td class="win">O(1) always</td><td>output-sensitive (≤ one Dijkstra)</td><td class="win">✓ oracle-verified</td></tr>
+      </table></div>
+      <p>ADAPTSKEL wins when changes are <strong>local</strong> — one cable fails, only a small region shifts, so far less than a full recompute, while source queries stay instant.</p>
+
+      <h3>7.6 Future work</h3>
+      <ol>
+        <li>C++ performance port (realize the constant-factor speed the design allows).</li>
+        <li>Multi-path / ECMP congestion splitting.</li>
+        <li>Extend fast queries beyond the single fixed source.</li>
+      </ol>
+      <button class="catch" data-id="p7"><svg class="pb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="7"/><path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="7"/><line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="7"/><circle cx="50" cy="50" r="13" fill="#fff" stroke="#17171d" stroke-width="7"/></svg><span>Catch this entry</span></button>
+    </section>
+
+    <!-- ============ PART 8 ============ -->
+    <section class="part" id="p8">
+      <div class="part-head"><span class="part-no">#008</span>
+        <div><h2>Demo Playbook</h2>
+        <p class="lead">The exact plan for tomorrow.</p></div>
+      </div>
+
+      <h3>Before the demo (do early, never live)</h3>
+      <pre>docker compose up -d          # images cached — starts in seconds
+# open:
+#  http://localhost:8001/health   -> {"status":"ok"}
+#  http://localhost:5174          -> GRAPHSKEL 3D  (header = green "Live Backend")
+#  http://localhost:5176          -> routing map</pre>
+      <p>Also run once so you can say "all green": <code>python -m pytest tests/ -q</code> → 76 passed.</p>
+
+      <h3>Talk order</h3>
+      <ol>
+        <li><strong>Live Stream</strong> — graph mutating, ADAPTSKEL vs Dijkstra, timing bars.</li>
+        <li><strong>Skeleton</strong> — blue F₁ hot edges; toggle to reveal F₂; query pulses through skeleton.</li>
+        <li><strong>Heat Map</strong> — 80/20 forms; few edges heat, skeleton crystallizes.</li>
+        <li><strong>Benchmark</strong> — Dijkstra red climbs, ADAPTSKEL flat.</li>
+        <li><strong>Routing map</strong> — cut one hub link (reroute under 10ms). Then cut 4 hub links: Congestion Control card goes red <strong>71%</strong> vs green <strong>27%</strong>. "Dumb routing drops 71%; congestion-aware reroutes to 27%; heat says which links to relieve first."</li>
+      </ol>
+
+      <div class="call blue"><b class="k">If asked "is it really O(log n)?"</b><p style="margin:0">"Source-rooted query is real O(1) — I read a label I maintain incrementally, no Dijkstra. Updates are output-sensitive (Ramalingam–Reps): only affected vertices recomputed, exact, oracle-verified every mutation. I do NOT claim polylog worst-case exact fully-dynamic — that's conditionally impossible under OMv. I claim what I actually deliver."</p></div>
+      <div class="call"><b class="k">If asked "how do you handle congestion?"</b><p style="margin:0">"Detect: sum load per link vs capacity. Solve: as a link fills past a knee, raise its weight so ADAPTSKEL — being dynamic — reroutes later flows around it. Below capacity it's identical to shortest-path (never worse); under overload it cuts loss 71%→27%. Heat doubles as the congestion signal."</p></div>
+      <button class="catch" data-id="p8"><svg class="pb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#17171d" stroke-width="7"/><path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1515" stroke="#17171d" stroke-width="7"/><line x1="4" y1="50" x2="96" y2="50" stroke="#17171d" stroke-width="7"/><circle cx="50" cy="50" r="13" fill="#fff" stroke="#17171d" stroke-width="7"/></svg><span>Catch this entry</span></button>
+    </section>
+
+    <!-- ============ GLOSSARY ============ -->
+    <section class="part" id="glossary">
+      <div class="part-head"><span class="part-no">#009</span>
+        <div><h2>Glossary</h2>
+        <p class="lead">Every term, searchable. Type to filter.</p></div>
+      </div>
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="gsearch" type="text" placeholder="Search terms — e.g. Dijkstra, heat, OMv, utilisation…" />
+      </div>
+      <div class="gloss" id="glist">
+        <div class="gterm"><h5>Vertex / node</h5><p>A point in a graph — here, a city.</p></div>
+        <div class="gterm"><h5>Edge</h5><p>A connection between two vertices — here, a cable.</p></div>
+        <div class="gterm"><h5>Weight</h5><p>An edge's cost — here, latency in ms.</p></div>
+        <div class="gterm"><h5>Path / shortest path / distance δ</h5><p>A route / the cheapest route / its total cost.</p></div>
+        <div class="gterm"><h5>SSSP</h5><p>Single-Source Shortest Paths — from one fixed source to all vertices.</p></div>
+        <div class="gterm"><h5>Fully dynamic</h5><p>Inserts and deletes both allowed, interleaved forever.</p></div>
+        <div class="gterm"><h5>O(1) / O(log n) / O(log² n) / O(E log V)</h5><p>Constant / very-slow-growing / slightly more / edge-proportional running-time classes.</p></div>
+        <div class="gterm"><h5>Amortized</h5><p>Cost averaged over many operations.</p></div>
+        <div class="gterm"><h5>Dijkstra</h5><p>The standard shortest-path algorithm (water spreading from the source).</p></div>
+        <div class="gterm"><h5>Relaxation</h5><p>Dijkstra's core step: "found a cheaper route, lower the distance."</p></div>
+        <div class="gterm"><h5>Tree / forest / spanning tree</h5><p>Loop-free connected graph / set of trees / loop-free backbone touching all vertices.</p></div>
+        <div class="gterm"><h5>Splay tree</h5><p>Self-balancing BST that rotates touched nodes to the top; O(log n) amortized.</p></div>
+        <div class="gterm"><h5>Heap / priority queue</h5><p>Container giving fast "remove the smallest"; O(log n) ops.</p></div>
+        <div class="gterm"><h5>LCT (Link-Cut Tree)</h5><p>Maintains a forest with fast link/cut/connectivity/path queries. Holds F₁.</p></div>
+        <div class="gterm"><h5>ETT (Euler Tour Tree)</h5><p>Forest structure with fast edits and replacement-edge search. Holds F₂.</p></div>
+        <div class="gterm"><h5>Holm levels</h5><p>The trick that makes replacement-edge search provably cheap over time.</p></div>
+        <div class="gterm"><h5>Ramalingam–Reps</h5><p>Incremental shortest-path update: affected-set decrease/increase.</p></div>
+        <div class="gterm"><h5>Output-sensitive</h5><p>Cost proportional to what actually changed, not the whole graph.</p></div>
+        <div class="gterm"><h5>Heat</h5><p>How often an edge is used by recent queries; drives promotion/demotion.</p></div>
+        <div class="gterm"><h5>F₁ / F₂</h5><p>Hot skeleton layer / cold residual layer.</p></div>
+        <div class="gterm"><h5>Promotion / demotion / hysteresis</h5><p>Moving edges between layers / the T-vs-T/2 gap preventing flicker.</p></div>
+        <div class="gterm"><h5>Invariant</h5><p>A rule that must always hold.</p></div>
+        <div class="gterm"><h5>Oracle</h5><p>A trusted source of correct answers (NetworkX).</p></div>
+        <div class="gterm"><h5>Property-based testing</h5><p>Assert a property over many random inputs instead of a few hand-written cases.</p></div>
+        <div class="gterm"><h5>OMv conjecture</h5><p>Believed-hard problem implying exact fully-dynamic SSSP can't be fast on both updates and queries.</p></div>
+        <div class="gterm"><h5>Conjecture</h5><p>A precise statement believed true with strong evidence but not yet proven.</p></div>
+        <div class="gterm"><h5>Capacity / load / utilisation</h5><p>A cable's max traffic / its current traffic / their ratio.</p></div>
+        <div class="gterm"><h5>Knee / alpha / beta</h5><p>Congestion penalty's start-point / size / sharpness.</p></div>
+        <div class="gterm"><h5>ECMP</h5><p>Equal-cost multi-path — splitting a flow over several routes (future work).</p></div>
+        <div class="gterm"><h5>pp (percentage points)</h5><p>The arithmetic gap between two percentages (71% − 27% = 44 pp).</p></div>
+      </div>
+      <p class="nohit" id="nohit" style="display:none">No entry matches. Try another term.</p>
+    </section>
+  </main>
+</div>
+
+<button class="totop" id="totop" aria-label="Back to top">↑</button>
+<div class="foot">ADAPTSKEL field guide · open this file any time offline · all 9 Pokédex entries covered.</div>
+
+<script>
+(function(){
+  // progress bar
+  var prog=document.getElementById('prog');
+  var totop=document.getElementById('totop');
+  function onScroll(){
+    var h=document.documentElement;
+    var sc=h.scrollTop, max=h.scrollHeight-h.clientHeight;
+    prog.style.width=(max>0?(sc/max*100):0)+'%';
+    totop.classList.toggle('show', sc>500);
+  }
+  document.addEventListener('scroll',onScroll,{passive:true}); onScroll();
+  totop.onclick=function(){window.scrollTo({top:0,behavior:'smooth'});};
+
+  // reveal + active nav via IntersectionObserver
+  var links=[].slice.call(document.querySelectorAll('nav.dex a'));
+  var byId={}; links.forEach(function(a){byId[a.getAttribute('href').slice(1)]=a;});
+  var sections=[].slice.call(document.querySelectorAll('section.part'));
+  var revObs=new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting) e.target.classList.add('in'); });
+  },{threshold:.08});
+  sections.forEach(function(s){revObs.observe(s);});
+
+  var actObs=new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        var a=byId[e.target.id]; if(a) a.classList.add('active');
+      }
+    });
+  },{rootMargin:'-45% 0px -50% 0px'});
+  sections.forEach(function(s){actObs.observe(s);});
+
+  // mobile menu
+  var dex=document.getElementById('dex'), mb=document.getElementById('menuBtn');
+  mb.onclick=function(){dex.classList.toggle('open');};
+  dex.addEventListener('click',function(e){ if(e.target.closest('a')) dex.classList.remove('open'); });
+
+  // catch / pokedex progress (localStorage)
+  var KEY='adaptskel_caught_v1';
+  var caught={}; try{caught=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){caught={};}
+  var counter=document.getElementById('caught');
+  function refresh(){
+    var n=Object.keys(caught).filter(function(k){return caught[k];}).length;
+    counter.textContent=n;
+    document.querySelectorAll('.catch').forEach(function(b){
+      var id=b.getAttribute('data-id'); var on=!!caught[id];
+      b.classList.toggle('caught',on);
+      b.querySelector('span').textContent=on?'Caught!':'Catch this entry';
+      var nav=byId[id]; if(nav) nav.classList.toggle('caught',on);
+    });
+  }
+  document.querySelectorAll('.catch').forEach(function(b){
+    b.onclick=function(){ var id=b.getAttribute('data-id'); caught[id]=!caught[id];
+      try{localStorage.setItem(KEY,JSON.stringify(caught));}catch(e){} refresh(); };
+  });
+  refresh();
+
+  // glossary search
+  var gs=document.getElementById('gsearch'), terms=[].slice.call(document.querySelectorAll('#glist .gterm')), nohit=document.getElementById('nohit');
+  gs.addEventListener('input',function(){
+    var q=gs.value.trim().toLowerCase(), hits=0;
+    terms.forEach(function(t){
+      var show=t.textContent.toLowerCase().indexOf(q)>=0;
+      t.classList.toggle('hide',!show); if(show)hits++;
+    });
+    nohit.style.display=hits?'none':'block';
+  });
+})();
+</script>
+</body>
+</html>
