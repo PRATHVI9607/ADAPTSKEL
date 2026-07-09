@@ -97,7 +97,7 @@ export function ControlPanel() {
         </div>
         <div style={{ fontFamily: 'Inter', fontSize: '0.7rem', color: 'var(--text-mid)', lineHeight: 1.5 }}>
           Maintains exact shortest paths as edges are inserted/deleted.
-          Hot edges promote to <strong>F₁</strong> skeleton for O(log&nbsp;n) queries.
+          Source queries read a maintained label in <strong>O(1)</strong>; hot edges promote to the <strong>F₁</strong> skeleton.
         </div>
       </div>
 

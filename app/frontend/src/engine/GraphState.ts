@@ -113,13 +113,3 @@ export const DEFAULT_STATS: AlgorithmStats = {
   pendingDecreases: 0,
   pendingIncreases: 0,
 }
-
-export const BENCHMARK_SCALING_DATA = [
-  { n: 100,    adaptskekUs: 12,    dijkstraUs: 45 },
-  { n: 500,    adaptskekUs: 18,    dijkstraUs: 210 },
-  { n: 1000,   adaptskekUs: 28,    dijkstraUs: 890 },
-  { n: 5000,   adaptskekUs: 42,    dijkstraUs: 5400 },
-  { n: 10000,  adaptskekUs: 51,    dijkstraUs: 18200 },
-  { n: 50000,  adaptskekUs: 65,    dijkstraUs: 95000 },
-  { n: 100000, adaptskekUs: 78,    dijkstraUs: 412000 },
-]

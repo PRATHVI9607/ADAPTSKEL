@@ -1,5 +1,21 @@
 # ADAPTSKEL — Amortized Complexity Analysis
 
+> **⚠️ Honesty note — read first.** This document is the *target / design* analysis
+> of the data-structure operations (Link-Cut Tree link/cut, ETT + Holm replacement
+> search, heat promotion). Those structural bounds — O(log n) link/cut, O(log² n)
+> amortised replacement search — are real and standard.
+>
+> It does **not** prove a polylog *worst-case* bound for exact fully-dynamic SSSP
+> *distance maintenance*, and no such proof exists: exact fully-dynamic SSSP with
+> both subpolynomial update and query is conditionally impossible under the OMv
+> conjecture. What the shipped Python engine actually guarantees is:
+> **O(1) source-rooted query** (a maintained-label read) and **output-sensitive**
+> incremental updates (Ramalingam–Reps — only affected vertices recomputed), which
+> beat a full Dijkstra rerun when changes are local and degrade to one Dijkstra in
+> the worst case. All distances are exact, verified against a NetworkX oracle after
+> every mutation. Treat the analysis below as the structural-operation cost model,
+> not a claim that distance queries are worst-case polylog.
+
 ## Setup
 
 Let:

@@ -162,8 +162,8 @@ function QueryTrace() {
             <HowStep
               ok
               text={pathHot
-                ? 'Path found in F₁ skeleton → O(log n) traversal'
-                : 'Path traversed via F₂ residual → O(log² n)'}
+                ? 'Hot path runs through the F₁ skeleton'
+                : 'Distance served from the maintained label → O(1)'}
             />
             <HowStep ok text="Exact distance — no approximation" />
             <HowStep ok text={`${steps.length} edge(s) in shortest tree`} />

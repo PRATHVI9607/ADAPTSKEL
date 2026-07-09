@@ -16,7 +16,7 @@ export function SkeletonOverlay() {
                 F₁ Skeleton
               </div>
               <div style={{ fontFamily: 'JetBrains Mono', fontSize: '0.65rem', color: 'var(--text-soft)' }}>
-                {stats.f1Edges} hot edges · O(log n) queries
+                {stats.f1Edges} hot edges · Link-Cut Tree
               </div>
             </div>
           </div>
@@ -30,7 +30,7 @@ export function SkeletonOverlay() {
                 F₂ Residual
               </div>
               <div style={{ fontFamily: 'JetBrains Mono', fontSize: '0.65rem', color: 'var(--text-soft)' }}>
-                {stats.f2Edges} cold edges · O(log² n) queries
+                {stats.f2Edges} cold edges · Euler Tour Tree
               </div>
             </div>
           </div>

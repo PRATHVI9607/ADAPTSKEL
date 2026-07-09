@@ -101,6 +101,33 @@ export class AdaptSkelEngine {
     return res.json()
   }
 
+  /**
+   * Run a benchmark on the real backend and poll until it completes.
+   * Returns the raw results object (real measured ADAPTSKEL vs Dijkstra timings).
+   * Throws if the backend is unreachable or the run errors/times out.
+   */
+  async runBenchmarkToCompletion(
+    config: object,
+    onProgress?: (p: number) => void,
+  ): Promise<Record<string, unknown>> {
+    const start = (await this.runBenchmark(config)) as { benchmark_id?: string }
+    const id = start.benchmark_id
+    if (!id) throw new Error('Benchmark did not start')
+
+    for (let i = 0; i < 900; i++) {
+      await new Promise(r => setTimeout(r, 400))
+      const st = await fetch(`${API_BASE}/api/benchmark/${id}/status`).then(r => r.json())
+      if (onProgress && typeof st.progress === 'number') onProgress(st.progress)
+      if (st.status === 'done') {
+        const res = await fetch(`${API_BASE}/api/benchmark/${id}/results`)
+        if (!res.ok) throw new Error(`Results fetch failed: ${res.status}`)
+        return res.json()
+      }
+      if (st.status === 'error') throw new Error(st.error || 'Benchmark error')
+    }
+    throw new Error('Benchmark timed out')
+  }
+
   openStream(onMessage: (event: MessageEvent) => void): WebSocket {
     const id = this.requireId()
     const wsUrl = new URL(API_BASE)

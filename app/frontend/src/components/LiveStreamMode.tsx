@@ -41,7 +41,7 @@ export function LiveStreamMode() {
             <div style={{ fontFamily: 'JetBrains Mono', fontSize: '1.1rem', fontWeight: 600, color: 'var(--sky-blue)' }}>
               {stats.avgQueryUs.toFixed(1)} μs
             </div>
-            <div style={{ fontFamily: 'Space Grotesk', fontSize: '0.6rem', color: 'var(--text-soft)' }}>O(log² n)</div>
+            <div style={{ fontFamily: 'Space Grotesk', fontSize: '0.6rem', color: 'var(--text-soft)' }}>O(1) source query</div>
           </div>
 
           <div style={{ textAlign: 'center', padding: '0 8px' }}>
@@ -53,9 +53,9 @@ export function LiveStreamMode() {
               DIJKSTRA
             </div>
             <div style={{ fontFamily: 'JetBrains Mono', fontSize: '1.1rem', fontWeight: 600, color: 'var(--delete-col)' }}>
-              {(stats.avgQueryUs * 14.2).toFixed(0)} μs
+              rerun
             </div>
-            <div style={{ fontFamily: 'Space Grotesk', fontSize: '0.6rem', color: 'var(--text-soft)' }}>O(n log n)</div>
+            <div style={{ fontFamily: 'Space Grotesk', fontSize: '0.6rem', color: 'var(--text-soft)' }}>O((V+E) log V) each change</div>
           </div>
         </div>
       </div>

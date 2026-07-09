@@ -1,5 +1,17 @@
 # ADAPTSKEL — Algorithm Explanation (Plain English)
 
+> **⚠️ Honesty note — what the shipped engine actually delivers.** Where this
+> document says queries are "O(log n)" or updates are "O(log² n) amortised", read
+> that as the *design intent* / structural-operation cost, not a proven guarantee
+> for exact distance queries. The real Python engine guarantees: **O(1)
+> source-rooted distance queries** (a maintained-label read — no recomputation),
+> and **output-sensitive** incremental updates (Ramalingam–Reps: only the vertices
+> whose distance actually changes are recomputed). Arbitrary-pair queries (source ≠
+> the fixed source) run one Dijkstra and get no speed-up. Distances are exact,
+> checked against a NetworkX oracle after every mutation. Exact fully-dynamic SSSP
+> with polylog *worst-case* update **and** query is not achievable (OMv conjecture),
+> so we do not claim it.
+
 ## The Problem
 
 Imagine Google Maps. There are millions of roads (edges) and millions of intersections (nodes). Every second, roads close due to accidents, new shortcuts open, and millions of users ask "what's the fastest route from A to B?"
