@@ -1,0 +1,89 @@
+flowchart TD
+    Start(["Graph operation arrives"]) --> Op{"Operation type?"}
+
+    %% ================= INSERT =================
+    Op -->|INSERT u,v,w| I1["Add edge to graph and adjacency"]
+    I1 --> I2{"Edge already exists?"}
+    I2 -->|New edge| DEC
+    I2 -->|Exists, weight lower| DEC
+    I2 -->|Exists, weight higher| INC
+    DEC --> LAY{"heat of edge >= T and<br/>endpoints not connected in F1?"}
+    LAY -->|Yes| F1ADD["Link edge into F1 skeleton<br/>Link-Cut Tree"]
+    LAY -->|No| F2ADD["Add edge into F2 residual<br/>Euler Tour Tree, level 0"]
+    F1ADD --> DONE(["Return updated state"])
+    F2ADD --> DONE
+
+    %% ================= DELETE =================
+    Op -->|DELETE u,v| D1["Remove edge from graph and adjacency"]
+    D1 --> D2{"Was edge in F1 skeleton?"}
+    D2 -->|No, only in F2| D3["Drop from F2, no structural repair"]
+    D2 -->|Yes| D4["Cut edge from F1, tree splits in two"]
+    D4 --> D5["Search F2 by Holm levels<br/>for a crossing replacement edge"]
+    D5 --> D6{"Replacement found?"}
+    D6 -->|Yes| D7["Promote replacement F2 to F1<br/>skeleton spans again"]
+    D6 -->|No| D8["Halves remain separate in skeleton"]
+    D3 --> INC
+    D7 --> INC
+    D8 --> INC
+
+    %% ================= QUERY =================
+    Op -->|QUERY s,t| Q1{"Is s the fixed source?"}
+    Q1 -->|Yes| Q2["Read dist of t from label - O(1)"]
+    Q1 -->|No| Q3["Run one Dijkstra from s - O(E log V)"]
+    Q2 --> Q4["Reconstruct path via pred pointers"]
+    Q3 --> Q4
+    Q4 --> H1["Heat update: bump heat of each path edge"]
+    H1 --> H2{"Any edge crossed threshold T?"}
+    H2 -->|Yes| H3["Promote F2 to F1 if not connected"]
+    H2 -->|No| H4["No promotion"]
+    H3 --> H5{"Window full and edge fell to T/2?"}
+    H4 --> H5
+    H5 -->|Yes| H6["Demote F1 to F2, repair skeleton"]
+    H5 -->|No| H7["No demotion"]
+    H6 --> QRET(["Return exact distance"])
+    H7 --> QRET
+
+    %% ================= DECREASE REPAIR =================
+    subgraph DECR["DECREASE repair - distances can only drop"]
+        DEC["Seed: does dist u + w improve dist v ?"] --> DC2{"Improves?"}
+        DC2 -->|Yes| DC3["Lower dist v, set pred v = u, push to min-heap"]
+        DC2 -->|No| DC4["Skip - no change"]
+        DC3 --> DC5["Pop nearest, relax neighbours Dijkstra-style"]
+        DC5 --> DC6{"Any neighbour improves?"}
+        DC6 -->|Yes| DC5
+        DC6 -->|No| DCok["Done - only improved vertices touched"]
+        DC4 --> DCok
+    end
+    DCok --> LAY
+
+    %% ================= INCREASE REPAIR =================
+    subgraph INCR["INCREASE repair - Ramalingam-Reps, distances can only rise"]
+        INC["Phase 1: from u,v find AFFECTED vertices"] --> IN2{"Still supported?<br/>some neighbour n: dist n + w = dist x"}
+        IN2 -->|Yes| IN3["Not affected, keep value"]
+        IN2 -->|No| IN4["Mark affected, spread to dependents"]
+        IN4 --> IN5["Phase 2: reset affected dist to INF"]
+        IN5 --> IN6["Re-seed each from best UNaffected neighbour"]
+        IN6 --> IN7["Run Dijkstra among affected only"]
+        IN7 --> INok["Done - exact, output-sensitive"]
+        IN3 --> INok
+    end
+    INok --> DONE
+
+    %% ================= LEGEND =================
+    subgraph LEG["Layers"]
+        L1["F1 SKELETON - hot edges - Link-Cut Tree - link/cut/path O(log n)"]
+        L2["F2 RESIDUAL - cold edges - Euler Tour Tree + Holm - replacement O(log^2 n)"]
+        L3["dist[] exact source labels - pred[] shortest-path parents"]
+    end
+
+    classDef ins fill:#dbeafe,stroke:#2563eb,color:#0b2447;
+    classDef del fill:#fde2e2,stroke:#dc2626,color:#4a0b0b;
+    classDef qry fill:#dcfce7,stroke:#16a34a,color:#052e16;
+    classDef rep fill:#fff4d6,stroke:#d97706,color:#3a2600;
+    classDef leg fill:#f1f5f9,stroke:#64748b,color:#1e293b;
+
+    class I1,I2,LAY,F1ADD,F2ADD ins;
+    class D1,D2,D3,D4,D5,D6,D7,D8 del;
+    class Q1,Q2,Q3,Q4,H1,H2,H3,H4,H5,H6,H7,QRET qry;
+    class DEC,DC2,DC3,DC4,DC5,DC6,DCok,INC,IN2,IN3,IN4,IN5,IN6,IN7,INok rep;
+    class L1,L2,L3 leg;
